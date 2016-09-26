@@ -57,6 +57,19 @@ void loadKeys() {
 	
 }
 
+char* genBlock(char* col) {
+	int dia = 0.000001;
+	for (int i = 0; i < sizeof(col); i++) {
+		for (int j = 1; j < sizeof(col); j++) {
+			if ((col[i] - col[j]) < dia) {
+				//the two elements neighbour
+			}
+			//iterate to next
+		}
+	}
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	loadMatrix();
 	loadKeys();
