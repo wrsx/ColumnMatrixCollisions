@@ -6,7 +6,7 @@
  */
 
 float mat[20][10]; //test dimensions
-long keys[20];
+char keys[20];
 
 void loadMatrix() {
 	
@@ -34,7 +34,7 @@ void loadMatrix() {
 }
 
 void loadKeys() {
-	/*char buffer[1024];
+	char buffer[1024];
 	char *record, *line;
 	int i = 0;
 	FILE *fstream = fopen("testkeys.txt", "r");
@@ -48,13 +48,13 @@ void loadKeys() {
 		record = strtok(line, " ");
 		while (record != NULL)
 		{
-			printf("Recording: %l to [%d] \n", record, i);
-			keys[i] = atol(record);
-			record = strtok(NULL, ",");
+			//printf("Recording: %s to [%d] \n", record, i);
+			keys[i] = record;
+			record = strtok(NULL, " ");
+			i++;
 		}
-		++i;
 	}
-	*/
+	
 }
 
 int main(int argc, char** argv) {
@@ -67,10 +67,10 @@ int main(int argc, char** argv) {
 		printf("\n");
 	}
 
-	/*for (int i = 0; i < 20; i++) {
-		printf("%d \n", keys[i]);
+	for (int i = 0; i < 20; i++) {
+		printf("%s \n", keys[i]);
 	}
-	*/
+	
 	
     return (EXIT_SUCCESS);
 }
