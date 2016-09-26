@@ -1,1 +1,14 @@
-﻿  ColumnMatrixCollisions.vcxproj -> C:\Users\Tom\OneDrive\Documents\CITS3402\ColumnMatrixCollisions\Release\ColumnMatrixCollisions.exe
+﻿  ColumnMatrixCollisions.c
+ColumnMatrixCollisions.c(20): warning C4098: 'loadMatrix': 'void' function returning a value
+ColumnMatrixCollisions.c(28): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+ColumnMatrixCollisions.c(44): warning C4098: 'loadKeys': 'void' function returning a value
+ColumnMatrixCollisions.c(51): warning C4476: 'printf' : unknown type field character ' ' in format specifier
+ColumnMatrixCollisions.c(51): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 1 has type 'char *'
+ColumnMatrixCollisions.c(51): warning C4474: 'printf' : too many arguments passed for format string
+  ColumnMatrixCollisions.c(51): note: placeholders and their parameters expect 1 variadic arguments, but 2 were provided
+  Generating code
+  1 of 6 functions (16.7%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    2 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  ColumnMatrixCollisions.vcxproj -> C:\Users\Jason\Documents\GitHub\ColumnMatrixCollisions\Release\ColumnMatrixCollisions.exe
