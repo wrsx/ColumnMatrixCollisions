@@ -88,22 +88,22 @@ void findBlocks(float col[], int colSize, float dia) {
     qsort(col, colSize, sizeof(float), floatcomp);
 
     float min, max = 0;
-    float result[colSize][colSize];
-    float temp[colSize];    
-    memset(result, 0, sizeof(result[0][0]) * colSize * colSize);
-    memset(temp, 0, sizeof(temp));
+    int result[colSize][colSize];
+    int temp[colSize];    
+    memset(result, -1, sizeof(result[0][0]) * colSize * colSize);
+    memset(temp, -1, sizeof(temp));
     int tempCount = 0;
     int resultCount = 0;
 
     for(int i = 0; i < colSize; i++) {
         //fprintf(stderr,"[%d] %f\n",i, col[i]);
 
-        if(temp[0] == 0) {
+        if(temp[0] == -1) {
             min = max = col[i];
-            temp[tempCount++] = col[i];    
+            temp[tempCount++] = i;    
         } else {
             if (fabs(col[i] - min) < dia && fabs(col[i] - max) < dia && tempCount < 4) {
-                temp[tempCount++] = col[i];
+                temp[tempCount++] = i;
                 if(col[i] < min) {
                     min = col[i];
                 } else if(col[i] > max) {
@@ -111,15 +111,15 @@ void findBlocks(float col[], int colSize, float dia) {
                 }
 
             } else {
-                if(temp[0] != 0 && tempCount > 3) {
+                if(temp[0] != -1 && tempCount > 3) {
                      for(int j = 0; j < tempCount; j++) {
                         result[resultCount][j] = temp[j];
                     }
                     resultCount++;
                 }
                 min = max = col[i];
-                memset(temp, 0, sizeof(temp));
-                temp[0] = col[i];
+                memset(temp, -1, sizeof(temp));
+                temp[0] = i;
                 i = i - tempCount;
                 tempCount = 0;
             }
@@ -129,8 +129,8 @@ void findBlocks(float col[], int colSize, float dia) {
     for(int j = 0; j < resultCount; j++) {
         int k = 0;
         printf("[");
-        while(result[j][k] != 0) {
-                printf("%f, ", result[j][k++]);
+        while(result[j][k] != -1) {
+                printf("%f, ", col[result[j][k++]]);
         }
         printf("]\n");
 
