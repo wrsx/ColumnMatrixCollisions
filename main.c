@@ -6,16 +6,18 @@
 /*
  * 
  */
+#define cols 500
+#define rows 4400
+#define keysize 15
 
-float mat[10][20]; //test dimensions
-char keys[20][15];
-
+float mat[cols][rows]; //test dimensions
+char keys[rows][keysize];
 int loadMatrix() {
-    
-    char buffer[1024];
+    int bufsize = cols * sizeof(char) * 10;
+    char buffer[bufsize];
     char *record, *line;
     int i = 0, j = 0;
-    FILE *fstream = fopen("testdata.txt", "r");
+    FILE *fstream = fopen("data.txt", "r");
     if (fstream == NULL)
     {
         printf("\n Opening matrix failed ");
@@ -88,9 +90,10 @@ void findBlocks(float col[], int colSize, float dia) {
     qsort(col, colSize, sizeof(float), floatcomp);
 
     float min, max = 0;
-    int result[colSize][colSize];
-    int temp[colSize];    
-    memset(result, -1, sizeof(result[0][0]) * colSize * colSize);
+    //int result[colSize][colSize];
+    int **result;
+    result = malloc(colSize * sizeof(int *));
+    int temp[colSize];  
     memset(temp, -1, sizeof(temp));
     int tempCount = 0;
     int resultCount = 0;
@@ -112,7 +115,11 @@ void findBlocks(float col[], int colSize, float dia) {
 
             } else {
                 if(temp[0] != -1 && tempCount > 3) {
-                     for(int j = 0; j < tempCount; j++) {
+                    //allocate the memory to store the result
+                    result[resultCount] = malloc((tempCount + 1) * sizeof(int)); 
+                    
+                    //loops over all the results in temp and one extra to ensure -1 is the last value in the array
+                    for(int j = 0; j <= tempCount; j++) {
                         result[resultCount][j] = temp[j];
                     }
                     resultCount++;
@@ -140,11 +147,13 @@ void findBlocks(float col[], int colSize, float dia) {
  
 int main(int argc, char* argv[]) {
     loadMatrix();
-    loadKeys();
-    findBlocks(mat[0], 20, 0.01);
+    //loadKeys();
+    findBlocks(mat[0], rows, 0.000001);
+    printf("\n");
+    findBlocks(mat[1], rows, 0.000001);
 
-    /*
     
+    /*
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < 10; j++) {
             printf("%f ", mat[j][i]);
@@ -153,9 +162,10 @@ int main(int argc, char* argv[]) {
     }
     */
     /*
-    for (int i = 0; i < 20; i++) {
-        printf("%s \n", keys[i]);
-    }*/
+    for (int i = 0; i < 4400; i++) {
+        printf("%f \n", mat[0][i]);
+    }
+    */
     
     return (EXIT_SUCCESS);
 }
