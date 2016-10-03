@@ -100,7 +100,6 @@ int elementComp(const void* p1, const void* p2) {
 }
 
 int subset(struct element temp[], int tempCount, int col, int k, int start, int currLen, bool used[], int resultCount) {
-    printf("cunt\n");
     if (currLen == k) {
         blocks[col][resultCount] = malloc((k+1) * sizeof(struct element)); 
         int blockCount = 0;
@@ -132,8 +131,8 @@ void findBlocks(int col, int colSize, float dia) {
 
     float min, max = 0;
   
-    struct element **result;
-    result = malloc(cols * sizeof(struct element *));  
+    struct element *result[colSize];
+    //result = malloc(cols * sizeof(struct element *));  
     
     
     struct element temp[colSize];  
@@ -142,7 +141,7 @@ void findBlocks(int col, int colSize, float dia) {
     int tempCount = 0;
     int lastTempCount = 0;
     int resultCount = 0;
-    double finalResultCount = 0;
+    int finalResultCount = 0;
     
     for(int i = 0; i < colSize; i++) {
         //fprintf(stderr,"[%d] %f\n",col[i].index, col[i].value);
@@ -168,9 +167,8 @@ void findBlocks(int col, int colSize, float dia) {
                 */
                 if((temp[0].index != -1) && (tempCount >= blocksize) && (tempCount >= lastTempCount)) {        
                     if(tempCount > blocksize) { //need to calculate the total combinations of 
-                        //formula for working out combinations of size k(blocksize) for n(tempcount) values
-                        double combination = exp(lgamma(tempCount+1)-lgamma(tempCount-blocksize+1))/tgamma(blocksize+1);
-                        finalResultCount += combination;
+                        //formula for working out combinations of size k(blocksize) for n(tempcount) values 
+                        finalResultCount += round(exp(lgamma(tempCount+1)-lgamma(tempCount-blocksize+1))/tgamma(blocksize+1));
                     } else {
                         finalResultCount++;
                     }
@@ -193,7 +191,7 @@ void findBlocks(int col, int colSize, float dia) {
         }      
     }
     blocks[col] = malloc((finalResultCount) * sizeof(struct element *));
-    printf("resultcount %i | finalresultCount %f\n", resultCount, finalResultCount);
+    //printf("resultcount %i | finalresultCount %i\n", resultCount, finalResultCount);
     int blockCount = 0;
     for(int j = 0; j < resultCount; j++) {
         blocks[col][blockCount] = malloc((blocksize+1) * sizeof(struct element)); 
@@ -202,20 +200,21 @@ void findBlocks(int col, int colSize, float dia) {
             if(length < blocksize+1) {
                 blocks[col][blockCount][length] = result[j][length];
             }
-            printf("[%i] %f, ",result[j][length].index , result[j][length].value);
+            //printf("[%i] %f, ",result[j][length].index , result[j][length].value);
 
         } while(result[j][length++].index != -1);
         length--;
         printf("%i\n", length);
-        if(length == 18) {
-        //if(length > blocksize) {
+        //if(length == 18) {
+        if(length > blocksize) {
             bool used[tempCount];
             blockCount += subset(result[j], length, col, blocksize, 0, 0, used, blockCount);        
         } else {
             blockCount++;
         }
+        free(result[j]);
     }
-    free(result);
+
     /*
     for(int k = 0; k < blockCount; k++) {
         int l = 0;
