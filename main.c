@@ -16,10 +16,25 @@ struct element {
    float value;
 };
 
+struct neighbourhoods {
+   int count;
+   int blockCount;
+   struct element **neighbourhoods;
+};
+
+struct block {
+   char *signature;
+   struct element *elements;
+};
+
+struct blocks {
+   int count;
+   struct block *blocks;
+};
+
 struct element data[cols][rows];
-//float mat[cols][rows]; //test dimensions
+
 char keys[rows][keysize];
-struct element **blocks[cols];
 
 int loadMatrix() {
     int bufsize = cols * sizeof(char) * 10;
@@ -73,20 +88,18 @@ int loadKeys() {
         return EXIT_SUCCESS;
 }
 
-char* genBlock(int col[], int colSize) {
-    double dia = 0.000001; 
-    bool within_dia[colSize][colSize];
-    for (int i = 0; i < colSize; i++) {
-        for (int j = 1; j < colSize; j++) {
-            if (abs(col[i] - col[j]) < dia) {
-                //the two elements neighbour
-                //store the row of the matching element
-                within_dia[i][j] = true;
-            }
-        }
 
-    }
-    return 0;
+void printBlocks(struct blocks b) {
+    for(int k = 0; k < b.count; k++) {
+        int l = 0;
+        printf("[");          
+        while(b.blocks[k].elements[l].index != -1) {
+            printf("[%i] %f, ",b.blocks[k].elements[l].index, b.blocks[k].elements[l].value);
+            l++;
+        }
+        printf("]\n");        
+    } 
+
 }
 
 int elementComp(const void* p1, const void* p2) {
@@ -99,61 +112,99 @@ int elementComp(const void* p1, const void* p2) {
     return (elem1->value > elem2->value);
 }
 
-int subset(struct element temp[], int tempCount, int col, int k, int start, int currLen, bool used[], int resultCount) {
-    
-    if (currLen == k) {
-        blocks[col][resultCount] = malloc((k+1) * sizeof(struct element)); 
+int findCombinations(struct blocks *b, struct element neighbourhood[], int neighbourhoodSize, int start, int currLen, bool used[]) {    
+    if (currLen == blocksize) {
+        b->blocks[b->count].elements = malloc((blocksize+1) * sizeof(struct element)); 
         int blockCount = 0;
-	for (int i = 0; i < tempCount; i++) {
+	for (int i = 0; i < neighbourhoodSize; i++) {
 	    if (used[i] == true) {
-                blocks[col][resultCount][blockCount++] = temp[i];
+                b->blocks[b->count].elements[blockCount++] = neighbourhood[i];
 	    }
 	}
-        
-        blocks[col][resultCount][k] = temp[tempCount]; //ensures the last item is -1
+        b->blocks[b->count].elements[blocksize] = neighbourhood[neighbourhoodSize]; //ensures the last item is -1
         return 1;
     }
-    if (start == tempCount) {
+    if (start == neighbourhoodSize) {
         return 0;
     }
     int new = 0;
 
     used[start] = true;
-    new += subset(temp, tempCount, col, k, start + 1, currLen + 1, used, resultCount);
+    b->count += findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen + 1, used);
 
     used[start] = false;
-    new += subset(temp, tempCount, col, k, start + 1, currLen, used, resultCount+new);
+    b->count += findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen, used);
     
     return new;
 }
 
-void findBlocks(int col, int colSize, float dia) { 	
+struct blocks getBlocks(struct neighbourhoods n) {
+    struct blocks b;
+    b.blocks = malloc((n.blockCount) * sizeof(struct block *));
+    b.count = 0;
+    //printf("neighbourhoodscount %i | finalresultCount %i\n", neighbourhoodCount, totalBlockCount);
+    for(int j = 0; j < n.count; j++) {
+        b.blocks[b.count].elements = malloc((blocksize+1) * sizeof(struct element)); 
+        int length = 0;
+        do {
+            if(length < blocksize+1) {
+                b.blocks[b.count].elements[length] = n.neighbourhoods[j][length];
+            }
+            //printf("[%i] %f, ",neighbourhoods[j][length].index , neighbourhoods[j][length].value);
+
+        } while(n.neighbourhoods[j][length++].index != -1);
+        length--;
+        //printf("%i\n", length);
+        if(length > blocksize) {
+            free(b.blocks[b.count].elements);
+            bool used[length];
+            memset(used, 0, sizeof(used));
+            findCombinations(&b, n.neighbourhoods[j], length, 0, 0, used);        
+        } else {
+            b.count++;
+        }
+        free(n.neighbourhoods[j]);
+    }
+    free(n.neighbourhoods);
+    
+    printf("blockCount %i, totalBlockCount %i\n", b.count, n.blockCount);
+    /*
+    for(int k = 0; k < b.count; k++) {
+        int l = 0;
+        printf("[");          
+        while(b.blocks[k].elements[l].index != -1) {
+            printf("[%i] %f, ",b.blocks[k].elements[l].index, b.blocks[k].elements[l].value);
+            l++;
+        }
+        printf("]\n");        
+    }    */
+}
+
+struct neighbourhoods getNeighbourhoods(int col, float dia) { 	
+    //sort the column by size of the value
     struct element *column = data[col];
-    qsort(column, colSize, sizeof(struct element), elementComp);
+    qsort(column, rows, sizeof(struct element), elementComp);
+
+    struct neighbourhoods n;
+    n.neighbourhoods = malloc(cols * sizeof(struct element *));  
+    n.count = 0; 
+    n.blockCount = 0;
+
+    struct element neighbourhood[rows];  
+    memset(&neighbourhood, -1, sizeof(neighbourhood));
 
     float min, max = 0;
-  
-    struct element *result[colSize];
-    //result = malloc(cols * sizeof(struct element *));  
+    int neighbourhoodSize = 0;
+    int lastNeighbourhoodSize = 0;
     
-    
-    struct element temp[colSize];  
-    memset(&temp, -1, sizeof(temp));
-    
-    int tempCount = 0;
-    int lastTempCount = 0;
-    int resultCount = 0;
-    int finalResultCount = 0;
-    
-    for(int i = 0; i < colSize; i++) {
+    for(int i = 0; i < rows; i++) {
         //fprintf(stderr,"[%d] %f\n",col[i].index, col[i].value);
-
-        if(temp[0].index == -1) {
+        if(neighbourhood[0].index == -1) {
             min = max = column[i].value;
-            temp[tempCount++] = column[i];    
+            neighbourhood[neighbourhoodSize++] = column[i];    
         } else {
             if (fabs(column[i].value - min) < dia && fabs(column[i].value - max) < dia) {
-                temp[tempCount++] = column[i];
+                neighbourhood[neighbourhoodSize++] = column[i];
                 if(column[i].value < min) {
                     min = column[i].value;
                 } else if(column[i].value > max) {
@@ -167,81 +218,43 @@ void findBlocks(int col, int colSize, float dia) {
                 -If the block is larger or equal in size to the previous block
                     This ensures that the current block is not a sub-block of the previous block
                 */
-                if((temp[0].index != -1) && (tempCount >= blocksize) && (tempCount >= lastTempCount)) {        
-                    if(tempCount > blocksize) { //need to calculate the total combinations of 
+                if((neighbourhood[0].index != -1) && (neighbourhoodSize >= blocksize) && (neighbourhoodSize >= lastNeighbourhoodSize)) {        
+                    if(neighbourhoodSize > blocksize) { //need to calculate the total combinations of 
                         //formula for working out combinations of size k(blocksize) for n(tempcount) values 
-                        finalResultCount += round(exp(lgamma(tempCount+1)-lgamma(tempCount-blocksize+1))/tgamma(blocksize+1));
+                       n.blockCount += round(exp(lgamma(neighbourhoodSize+1)-lgamma(neighbourhoodSize-blocksize+1))/tgamma(blocksize+1));
                     } else {
-                        finalResultCount++;
+                        n.blockCount++;
                     }
-                    //printf("count %i\n", tempCount);                    
-                    //printf("finalresultCount %i\n", finalResultCount);
-                    //allocate the memory to store the result
-                    result[resultCount] = malloc((tempCount+1) * sizeof(struct element)); 
-                    //loops over all the results in temp and one extra to ensure -1 is the last value in the array
-                    for(int j = 0; j <= tempCount; j++) {
-                        result[resultCount][j] = temp[j];
+                    //allocate the memory to store the neighbourhoods
+                    n.neighbourhoods[n.count] = malloc((neighbourhoodSize+1) * sizeof(struct element)); 
+                    //loops over all the elements in temp and one extra to ensure -1 is the last value in the array
+                    for(int j = 0; j <= neighbourhoodSize; j++) {
+                        n.neighbourhoods[n.count][j] = neighbourhood[j];
                     }
-                    resultCount++;
+                    n.count++;
                 }
                 min = max = column[i].value;
-                memset(&temp, -1, sizeof(temp));
-                i = i - tempCount;
-                lastTempCount = tempCount;
-                tempCount = 0;
+                memset(&neighbourhood, -1, sizeof(neighbourhood));
+                i = i - neighbourhoodSize;
+                lastNeighbourhoodSize = neighbourhoodSize;
+                neighbourhoodSize = 0;
             }
         }      
     }
-    blocks[col] = malloc((finalResultCount) * sizeof(struct element *));
-    //printf("resultcount %i | finalresultCount %i\n", resultCount, finalResultCount);
-    int blockCount = 0;
-    for(int j = 0; j < resultCount; j++) {
-        blocks[col][blockCount] = malloc((blocksize+1) * sizeof(struct element)); 
-        int length = 0;
-        do {
-            if(length < blocksize+1) {
-                blocks[col][blockCount][length] = result[j][length];
-            }
-            //printf("[%i] %f, ",result[j][length].index , result[j][length].value);
-
-        } while(result[j][length++].index != -1);
-        length--;
-        printf("%i\n", length);
-        //if(length == 18) {
-        if(length > blocksize) {
-            free(blocks[col][blockCount]);
-            bool used[length];
-            memset(used, 0, sizeof(used));
-            blockCount += subset(result[j], length, col, blocksize, 0, 0, used, blockCount);        
-        } else {
-            blockCount++;
-        }
-        free(result[j]);
-    }
-
-    /*
-    for(int k = 0; k < blockCount; k++) {
-        int l = 0;
-        printf("[");          
-        while(blocks[col][k][l].index != -1) {
-            printf("[%i] %f, ",blocks[col][k][l].index , blocks[col][k][l].value);
-            l++;
-        }
-        printf("]\n");        
-    }      */
+    return n;
 }
  
 int main(int argc, char* argv[]) {
     loadMatrix();
     //loadKeys();
     
-
     
    
-    for(int i = 499; i < cols; i++) {
+    for(int i = 0; i < cols; i++) {
         printf("\n-----------COLUMN %i---------\n",i);
-        findBlocks(i, rows, 0.000001);
-        printf("\n");
+        struct neighbourhoods n = getNeighbourhoods(i, 0.000001);
+        struct blocks b = getBlocks(n);
+        //printBlocks(b);
     }
 
     
