@@ -23,7 +23,7 @@ struct neighbourhoods {
 };
 
 struct block {
-   char *signature;
+   //char *signature;
    struct element *elements;
 };
 
@@ -90,12 +90,12 @@ int loadKeys() {
 
 
 void printBlocks(struct blocks b) {
-    for(int k = 0; k < b.count; k++) {
-        int l = 0;
+    for(int i = 0; i < b.count; i++) {
+        int j = 0;
         printf("[");          
-        while(b.blocks[k].elements[l].index != -1) {
-            printf("[%i] %f, ",b.blocks[k].elements[l].index, b.blocks[k].elements[l].value);
-            l++;
+        while(b.blocks[i].elements[j].index != -1) {
+            printf("[%i] %f, ",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value);
+            j++;
         }
         printf("]\n");        
     } 
@@ -150,8 +150,6 @@ struct blocks getBlocks(struct neighbourhoods n) {
             if(length < blocksize+1) {
                 b.blocks[b.count].elements[length] = n.neighbourhoods[j][length];
             }
-            //printf("[%i] %f, ",neighbourhoods[j][length].index , neighbourhoods[j][length].value);
-
         } while(n.neighbourhoods[j][length++].index != -1);
         length--;
         //printf("%i\n", length);
@@ -166,18 +164,8 @@ struct blocks getBlocks(struct neighbourhoods n) {
         free(n.neighbourhoods[j]);
     }
     free(n.neighbourhoods);
-    
-    printf("blockCount %i, totalBlockCount %i\n", b.count, n.blockCount);
-    /*
-    for(int k = 0; k < b.count; k++) {
-        int l = 0;
-        printf("[");          
-        while(b.blocks[k].elements[l].index != -1) {
-            printf("[%i] %f, ",b.blocks[k].elements[l].index, b.blocks[k].elements[l].value);
-            l++;
-        }
-        printf("]\n");        
-    }    */
+    //printf("blockCount %i, totalBlockCount %i\n", b.count, n.blockCount);
+    return b;
 }
 
 struct neighbourhoods getNeighbourhoods(int col, float dia) { 	
@@ -254,7 +242,7 @@ int main(int argc, char* argv[]) {
         printf("\n-----------COLUMN %i---------\n",i);
         struct neighbourhoods n = getNeighbourhoods(i, 0.000001);
         struct blocks b = getBlocks(n);
-        //printBlocks(b);
+        printBlocks(b);
     }
 
     
