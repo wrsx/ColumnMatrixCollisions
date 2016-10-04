@@ -100,6 +100,7 @@ int elementComp(const void* p1, const void* p2) {
 }
 
 int subset(struct element temp[], int tempCount, int col, int k, int start, int currLen, bool used[], int resultCount) {
+    
     if (currLen == k) {
         blocks[col][resultCount] = malloc((k+1) * sizeof(struct element)); 
         int blockCount = 0;
@@ -108,7 +109,8 @@ int subset(struct element temp[], int tempCount, int col, int k, int start, int 
                 blocks[col][resultCount][blockCount++] = temp[i];
 	    }
 	}
-        blocks[col][resultCount][blockCount] = temp[tempCount]; //ensures the last item is -1
+        
+        blocks[col][resultCount][k] = temp[tempCount]; //ensures the last item is -1
         return 1;
     }
     if (start == tempCount) {
@@ -207,7 +209,9 @@ void findBlocks(int col, int colSize, float dia) {
         printf("%i\n", length);
         //if(length == 18) {
         if(length > blocksize) {
-            bool used[tempCount];
+            free(blocks[col][blockCount]);
+            bool used[length];
+            memset(used, 0, sizeof(used));
             blockCount += subset(result[j], length, col, blocksize, 0, 0, used, blockCount);        
         } else {
             blockCount++;
