@@ -93,9 +93,9 @@ int loadKeys() {
 void printBlocks(struct blocks b) {
     for(int i = 0; i < b.count; i++) {
         int j = 0;
-        printf("[");          
+        printf("col %i [", b.blocks[i].col);          
         while(b.blocks[i].elements[j].index != -1) {
-            printf("[%i] %f, key %s",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value, b.blocks[i].signature);
+            printf("[%i] %f, key %s ",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value, keys[b.blocks[i].elements[j].index]);
             j++;
         }
         printf("] - sig %s\n", b.blocks[i].signature);        
