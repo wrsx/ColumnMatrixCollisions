@@ -110,7 +110,7 @@ char *reverse(char *key) {
 
     char temp;
     int i = 0;
-    int j = strlen(key)-1;
+    int j = strlen(reversed)-1;
     while (i < j) {
         temp = reversed[i];
         reversed[i] = reversed[j];
@@ -124,46 +124,45 @@ char *reverse(char *key) {
 
 //adds the 2 keys together
 char* addKey(char *key1, char *key2) {
-    int longest = 1 + (strlen(key1) + strlen(key2))/2.0 + abs(strlen(key1) - strlen(key2))/2.0;
-    char new1[longest];
-    char new2[longest]; 
-    memset(new1, '0', longest);
-    memset(new2, '0', longest);
-    strncpy(new1, reverse(key1), strlen(key1));
-    strncpy(new2, reverse(key2), strlen(key2));    
-    new1[longest-1] = '\0';
-    new2[longest-1] = '\0';   
+    int length1 = strlen(key1);
+    int length2 = strlen(key2);
+    int longest = (length1 + length2)/2.0 + abs(length1 - length2)/2.0;
+    char *placeValues = malloc((longest+2) * sizeof(char));
 
-    char *placeValues = malloc(longest+1 * sizeof(char));
-    memset(placeValues, '\0', sizeof(placeValues));
     int valueToAdd;
     int carryOver = 0;
-    for (int i = 0; i<(longest-1); i++) {
-        //while we arent at the end of the string
-        while (i != (longest-2)) {
-            valueToAdd = (new1[i] - '0') + (new2[i] - '0') + carryOver;
-            carryOver = 0;
-            if (valueToAdd > 9 ) {
-                valueToAdd = valueToAdd - 10;
-                carryOver++;
+    int i = longest;
+    while (i >= 0) {
+        valueToAdd = carryOver;
+        if(i > 0) {
+            if((longest - i) < length1) {
+                int adjustedIndex = length1 - longest + i - 1;
+                valueToAdd += (key1[adjustedIndex] - '0');
+                //printf("key1 adjustedIndex %i, valuetoAdd %i\n", adjustedIndex, valueToAdd);
             }
-            placeValues[i] = valueToAdd + '0';
-            i++;    
+            if((longest - i) < length2) {
+                int adjustedIndex = length2 - longest + i - 1;
+                valueToAdd += (key2[adjustedIndex] - '0');
+                //printf("key2 adjustedIndex %i, valuetoAdd %i\n", adjustedIndex, valueToAdd);
+            }
         }
-        valueToAdd = (new1[i] - '0') + (new2[i] - '0') + carryOver;
+        
         carryOver = 0;
-        //the case when we reach the end of the string, the final digit to add
-        if (valueToAdd > 9) {
+        if (valueToAdd > 9 ) {
             valueToAdd = valueToAdd - 10;
-            placeValues[(longest-2)] = valueToAdd + '0';
             carryOver++;
-            placeValues[(longest-1)] = carryOver + '0';
         }
-        else {
-            placeValues[(longest-2)] = valueToAdd + '0';
+        
+        placeValues[i] = valueToAdd + '0';
+        i--;
+    }
+    
+    if(placeValues[0] == '0') {
+        for (int j = 0; j < longest+1; j++){
+            placeValues[j]= placeValues[j+1];
         }
     }
-    return reverse(placeValues);
+    return placeValues;
 }
 
 char *getSignature(struct element elements[]) {
@@ -325,11 +324,12 @@ struct blocks getBlocks(struct neighbourhoods *n, int neighbourhoodsCount, int t
 struct blocks getAllBlocks(float dia) {
     struct neighbourhoods *allNeighbourhoods = malloc(cols * sizeof(struct neighbourhoods));
     int totalBlockCount =0;
-    for(int i = 0; i < 10; i++) {
+    for(int i = 0; i < cols; i++) {
         allNeighbourhoods[i] = getNeighbourhoods(i, dia);
         totalBlockCount += allNeighbourhoods[i].blockCount;
     }
-    struct blocks allBlocks = getBlocks(allNeighbourhoods, 10, totalBlockCount);
+    struct blocks allBlocks = getBlocks(allNeighbourhoods, cols, totalBlockCount);
+    //qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
     return allBlocks;
 }
 
@@ -362,6 +362,35 @@ int main(int argc, char* argv[]) {
         printf("%f \n", mat[0][i]);
     }
     */
+    
+    char *key1 = "9";
+    char *key2 = "85";
+    
+    /*
+    int length1 = strlen(key1);
+    int length2 = strlen(key2);
+    int longest = (length1 + length2)/2.0 + abs(length1 - length2)/2.0;
+    char new1[longest+1];
+    char new2[longest+1];
+    
+    if(longest == length1) {
+        memset(new1, '0', longest);
+        new1[longest-length2] = '\0';
+        strcat(new1, key2);
+        strcpy(new2, key1);
+    } else if(longest == length2) {
+        memset(new1, '0', longest);
+        new1[longest-length1] = '\0';
+        strcat(new1, key1);
+        strcpy(new2, key2);
+    } else {
+        strcpy(new1, key1);
+        strcpy(new2, key2);
+    }
+    
+    printf("new1 %s\nnew2 %s\n", new1, new2);
+    */
+    //printf("%s\n", addKey(key1, key2));
     
     return (EXIT_SUCCESS);
 }
