@@ -110,6 +110,21 @@ void printBlocks(struct blocks b) {
 
 }
 
+void printCollisions(struct collisions c) {
+    for(int i = 0; i < c.count; i++) {
+        struct blocks b = c.collisions[i];
+        printf("\nsignature %llu\n", b.blocks[0].signature);
+        for(int j = 0; j < b.count; j++) {
+            struct block bl = b.blocks[j];
+            printf("col %i: [", bl.col);
+            for(int k = 0; k  < blocksize; k++) {
+                printf("%f, ", bl.elements[k].value);
+            }
+            printf("]\n");
+        }
+    }
+}
+
 //adds the 2 keys together
 char* addKey(char key1[], char *key2) {
     int length1 = strlen(key1);
@@ -326,32 +341,17 @@ struct collisions getCollisions(struct blocks allBlocks) {
             currentBlock = &allBlocks.blocks[i++];
             blockCount++;
         } while(currentBlock->signature == allBlocks.blocks[i].signature);
-        //printf("[before] blockCount %i\n", blockCount);
         //collision found
         if(blockCount > 1) {
             c.collisions[collisionCount].blocks = malloc(blockCount * sizeof(struct block));
             c.collisions[collisionCount].count = blockCount;
             for(blockCount; blockCount > 0; blockCount--) {
-                c.collisions[collisionCount++].blocks[blockCount-1] = allBlocks.blocks[i-blockCount]; 
+                c.collisions[collisionCount].blocks[blockCount-1] = allBlocks.blocks[i-blockCount];
             }
-            printf("[after] blockCount %i\n", blockCount);
+            collisionCount++;
         }
     }
     c.count = collisionCount;
-
-    for(int j=0; j < c.count; j++) {
-        struct blocks b = c.collisions[j];
-        printf("\nsignature %s\n", b.blocks[0].signature);
-        for(int k=0; k<b.count; k++) {
-            struct block bl = b.blocks[k];
-            printf("col %i: [", bl.col);
-            for(int l=0; l < blocksize; l++) {
-                printf("%s, ", bl.elements[l].index);
-            }
-            printf("]\n");
-        }
-    }
-
     return c;
 }
  
@@ -361,7 +361,8 @@ int main(int argc, char* argv[]) {
     
     struct blocks b = getAllBlocks(0.000001);
     //printBlocks(b);
-    getCollisions(b);
+    struct collisions c = getCollisions(b);
+    printCollisions(c);
                                    
     return (EXIT_SUCCESS);
 }
