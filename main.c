@@ -3,12 +3,13 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+#include <limits.h>
 /*
  * 
  */
 #define cols 500
 #define rows 4400
-#define keysize 15
+#define keysize 14
 #define blocksize 4
 
 struct element {
@@ -24,7 +25,7 @@ struct neighbourhoods {
 };
 
 struct block {
-   char *signature;
+   long signature;
     int col;
     struct element *elements;
 };
@@ -34,8 +35,13 @@ struct blocks {
    struct block *blocks;
 };
 
+struct collisions {
+    int count;
+    struct blocks *collisions;
+};
+
 struct element data[cols][rows];
-char keys[rows][keysize];
+long keys[rows];
 
 int loadMatrix() {
     int bufsize = cols * sizeof(char) * 10;
@@ -80,8 +86,10 @@ int loadKeys() {
         while (record != NULL)
         {
             //printf("Recording: %s to [%d] \n", record, i);
+            /*
             strcpy(keys[i], record);
-            keys[i][14] = '\0';
+            keys[i][14] = '\0';*/
+            keys[i] = atol(record);
             record = strtok(NULL, " ");
             i++;
         }
@@ -95,35 +103,16 @@ void printBlocks(struct blocks b) {
         int j = 0;
         printf("col %i [", b.blocks[i].col);          
         while(b.blocks[i].elements[j].index != -1) {
-            printf("[%i] %f, key %s ",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value, keys[b.blocks[i].elements[j].index]);
+            printf("[%i] %f, key %ld ",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value, keys[b.blocks[i].elements[j].index]);
             j++;
         }
-        printf("] - sig %s\n", b.blocks[i].signature);        
+        printf("] - sig %ld\n", b.blocks[i].signature);
     } 
 
 }
 
-//String reverser for easier addition
-char *reverse(char *key) {
-    char *reversed = malloc((strlen(key)+1) * sizeof(char));
-    strcpy(reversed, key);
-
-    char temp;
-    int i = 0;
-    int j = strlen(reversed)-1;
-    while (i < j) {
-        temp = reversed[i];
-        reversed[i] = reversed[j];
-        reversed[j] = temp;
-        i++;
-        j--;
-    }
-    reversed[strlen(key)] = '\0';
-    return reversed;
-}
-
 //adds the 2 keys together
-char* addKey(char *key1, char *key2) {
+char* addKey(char key1[], char *key2) {
     int length1 = strlen(key1);
     int length2 = strlen(key2);
     int longest = (length1 + length2)/2.0 + abs(length1 - length2)/2.0;
@@ -138,12 +127,10 @@ char* addKey(char *key1, char *key2) {
             if((longest - i) < length1) {
                 int adjustedIndex = length1 - longest + i - 1;
                 valueToAdd += (key1[adjustedIndex] - '0');
-                //printf("key1 adjustedIndex %i, valuetoAdd %i\n", adjustedIndex, valueToAdd);
             }
             if((longest - i) < length2) {
                 int adjustedIndex = length2 - longest + i - 1;
                 valueToAdd += (key2[adjustedIndex] - '0');
-                //printf("key2 adjustedIndex %i, valuetoAdd %i\n", adjustedIndex, valueToAdd);
             }
         }
         
@@ -162,15 +149,16 @@ char* addKey(char *key1, char *key2) {
             placeValues[j]= placeValues[j+1];
         }
     }
+    //free(key1);
     return placeValues;
 }
 
-char *getSignature(struct element elements[]) {
-    char *signature = "0";
+long getSignature(struct element elements[]) {
+    long signature = 0;
+    
     for (int i=0; i<blocksize; i++) {
         struct element e = elements[i];
-        char *key = keys[e.index];
-        signature = addKey(signature, key);
+        signature += keys[e.index];
     }
     return signature;
 }
@@ -186,22 +174,13 @@ int elementComp(const void* p1, const void* p2) {
 }
 
 int blockComp(const void* p1, const void* p2) {
-
     const struct block *elem1 = p1;
     const struct block *elem2 = p2;
-    char *value1 = elem1->signature;
-    char *value2 = elem2->signature;
-
-    int i = 0;
-    while(value1[i] != '\0' && value2[i] != '\0') {
-        if((value1[i] - '0') < (value2[i] - '0')) {
-            return -1;
-        } else if((value1[i] - '0') > (value2[i] - '0')) {
-            return 1;
-        }
-        i++;        
+    
+    if(elem1->signature < elem2->signature) {
+        return -1;
     }
-    return 0;
+    return (elem1->signature > elem2->signature);
 }
 
 int findCombinations(struct blocks *b, struct element neighbourhood[], int neighbourhoodSize, int start, int currLen, bool used[], int col) {    
@@ -329,68 +308,76 @@ struct blocks getAllBlocks(float dia) {
         totalBlockCount += allNeighbourhoods[i].blockCount;
     }
     struct blocks allBlocks = getBlocks(allNeighbourhoods, cols, totalBlockCount);
-    //qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
+    qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
     return allBlocks;
 }
-
+/*
 void getCollisions(struct blocks allBlocks) {
- //   char 
-}
+    struct collisions c;
+    c.collisions = malloc(allBlocks.count * sizeof(struct blocks));
+    
+    struct block *currentBlock;
+    int collisionCount = 0;
+    int blockCount = 0;
+    
+    int i = 0;
+    
+    do {
+        currentBlock = &allBlocks.blocks[i++];
+        
+    } while(currentBlock->signature == allBlocks.blocks[i].signature);
+    
+    
+    for(int i = 0; i < allBlocks.count; i++) {
+    
+        if(currentSig == currentBlock->signature) {
+            c.collisions[c.count].blocks[b.count++] = currentBlock;
+        
+        } else {
+            c.collisions[c.count].blocks[c.collisions[c.count].count++] = b;
+            currentSig = allBlocks[
+        }
+        
+    }
+    
+}*/
  
 int main(int argc, char* argv[]) {
     loadMatrix();
     loadKeys();
+    
+    //struct blocks b = getAllBlocks(0.000001);
+    //printBlocks(b);
 
-        //struct neighbourhoods n = getNeighbourhoods(i, 0.000001);
-        struct blocks b = getAllBlocks(0.000001);
-        //blocks += b.count;
-        printBlocks(b);
-
-    //while(string1[i] != '\0' || string2[i] != '\0') {
-        
-    //}
-    /*
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < 2; j++) {
-            printf("%f ", mat[j][i].value);
-        }
-        printf("\n");
-    }
-    */
-    /*
-    for (int i = 0; i < 4400; i++) {
-        printf("%f \n", mat[0][i]);
-    }
-    */
-    
-    char *key1 = "9";
-    char *key2 = "85";
-    
-    /*
-    int length1 = strlen(key1);
-    int length2 = strlen(key2);
-    int longest = (length1 + length2)/2.0 + abs(length1 - length2)/2.0;
-    char new1[longest+1];
-    char new2[longest+1];
-    
-    if(longest == length1) {
-        memset(new1, '0', longest);
-        new1[longest-length2] = '\0';
-        strcat(new1, key2);
-        strcpy(new2, key1);
-    } else if(longest == length2) {
-        memset(new1, '0', longest);
-        new1[longest-length1] = '\0';
-        strcat(new1, key1);
-        strcpy(new2, key2);
-    } else {
-        strcpy(new1, key1);
-        strcpy(new2, key2);
-    }
-    
-    printf("new1 %s\nnew2 %s\n", new1, new2);
-    */
-    //printf("%s\n", addKey(key1, key2));
-    
+                                   printf("CHAR_BIT   = %d\n", CHAR_BIT);
+                                   printf("MB_LEN_MAX = %d\n", MB_LEN_MAX);
+                                   printf("\n");
+                                   
+                                   printf("CHAR_MIN   = %+d\n", CHAR_MIN);
+                                   printf("CHAR_MAX   = %+d\n", CHAR_MAX);
+                                   printf("SCHAR_MIN  = %+d\n", SCHAR_MIN);
+                                   printf("SCHAR_MAX  = %+d\n", SCHAR_MAX);
+                                   printf("UCHAR_MAX  = %u\n",  UCHAR_MAX);
+                                   printf("\n");
+                                   
+                                   printf("SHRT_MIN   = %+d\n", SHRT_MIN);
+                                   printf("SHRT_MAX   = %+d\n", SHRT_MAX);
+                                   printf("USHRT_MAX  = %u\n",  USHRT_MAX);
+                                   printf("\n");
+                                   
+                                   printf("INT_MIN    = %+d\n", INT_MIN);
+                                   printf("INT_MAX    = %+d\n", INT_MAX);
+                                   printf("UINT_MAX   = %u\n",  UINT_MAX);
+                                   printf("\n");
+                                   
+                                   printf("LONG_MIN   = %+ld\n", LONG_MIN);
+                                   printf("LONG_MAX   = %+ld\n", LONG_MAX);
+                                   printf("ULONG_MAX  = %lu\n",  ULONG_MAX);
+                                   printf("\n");
+                                   
+                                   printf("LLONG_MIN  = %+lld\n", LLONG_MIN);
+                                   printf("LLONG_MAX  = %+lld\n", LLONG_MAX);
+                                   printf("ULLONG_MAX = %llu\n",  ULLONG_MAX);
+                                   
     return (EXIT_SUCCESS);
 }
