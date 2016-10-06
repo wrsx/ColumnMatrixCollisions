@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+#include <omp.h>
 /*
  * 
  */
@@ -41,6 +42,7 @@ struct collisions {
 
 struct element data[cols][rows];
 long long keys[rows];
+int z = 0;
 
 int loadMatrix() {
     int bufsize = cols * sizeof(char) * 10;
@@ -95,7 +97,6 @@ int loadKeys() {
     }
         return EXIT_SUCCESS;
 }
-
 
 void printBlocks(struct blocks b) {
     for(int i = 0; i < b.count; i++) {
@@ -154,6 +155,58 @@ int blockComp(const void* p1, const void* p2) {
     return (elem1->signature > elem2->signature);
 }
 
+static void swap(void *x, void *y, size_t l) {
+   char *a = x, *b = y, c;
+   while(l--) {
+      c = *a;
+      *a++ = *b;
+      *b++ = c;
+   }
+}
+
+int partition(void *a, int low_index, int high_index, size_t size, int (*cmp)(const void *, const void *)) {
+    int up, down; 
+    void *key;
+    key = a + low_index*size;
+    up = low_index;
+    down = high_index;
+    do {
+        swap(a + up*size, a + down*size, size);
+    partLS:
+        while ((*cmp)(a + up*size, key)  <= 0 && up < high_index)
+            up++;
+        while ((*cmp)(a + down*size, key) > 0 && down > low_index)
+            down--;
+    } while(down > up);
+    swap(a + low_index*size, a + down*size, size);
+    
+}
+
+void quicksort(void *a, int low_index, int high_index, size_t size, int (*cmp)(const void *, const void *)) {
+    int j;
+
+    if (low_index < high_index) {
+        j = partition(a, low_index, high_index, size, cmp);
+        printf("Pivot element with index %d has been found out by thread %d\n", j, z);
+
+        #pragma omp parallel sections 
+        {
+            #pragma omp section 
+            {
+                z = z + 1;
+                quicksort(a, low_index, j - 1, size, cmp);
+            }
+
+            #pragma omp section 
+            {
+                z = z + 1;
+                quicksort(a, j + 1, high_index, size, cmp);
+            }
+
+        }
+    }
+}
+
 struct neighbourhoods getNeighbourhoods(int col, float dia) { 	
     //sort the column by size of the value
     struct element *column = data[col];
@@ -173,7 +226,6 @@ struct neighbourhoods getNeighbourhoods(int col, float dia) {
     int lastNeighbourhoodSize = 0;
     
     for(int i = 0; i < rows; i++) {
-        //fprintf(stderr,"[%d] %f\n",col[i].index, col[i].value);
         if(neighbourhood[0].index == -1) {
             min = max = column[i].value;
             neighbourhood[neighbourhoodSize++] = column[i];    
@@ -269,12 +321,12 @@ struct blocks getBlocks(struct neighbourhoods *n, int neighbourhoodsCount, int t
 struct blocks getAllBlocks(float dia) {
     struct neighbourhoods *allNeighbourhoods = malloc(cols * sizeof(struct neighbourhoods));
     int totalBlockCount =0;
-    for(int i = 0; i < cols; i++) {
+    for(int i = 0; i < 10; i++) {
         allNeighbourhoods[i] = getNeighbourhoods(i, dia);
         totalBlockCount += allNeighbourhoods[i].blockCount;
     }
-    struct blocks allBlocks = getBlocks(allNeighbourhoods, cols, totalBlockCount);
-    qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
+    struct blocks allBlocks = getBlocks(allNeighbourhoods, 10, totalBlockCount);
+    quicksort(allBlocks.blocks, 0, allBlocks.count, sizeof(struct block), blockComp);
     return allBlocks;
 }
 
@@ -312,8 +364,8 @@ int main(int argc, char* argv[]) {
     loadKeys();
     
     struct blocks b = getAllBlocks(0.000001);
-    printf("total memory usage should be %ldmb\n", (b.count *(sizeof(struct block) * 4 * sizeof(struct element)))/1000000);
-    //struct collisions c = getCollisions(b);
+    printBlocks(b);
+    struct collisions c = getCollisions(b);
     //printCollisions(c);
                                    
     return (EXIT_SUCCESS);
