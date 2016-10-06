@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
-#include <limits.h>
 /*
  * 
  */
@@ -25,7 +24,7 @@ struct neighbourhoods {
 };
 
 struct block {
-   long signature;
+    long long signature;
     int col;
     struct element *elements;
 };
@@ -41,7 +40,7 @@ struct collisions {
 };
 
 struct element data[cols][rows];
-long keys[rows];
+long long keys[rows];
 
 int loadMatrix() {
     int bufsize = cols * sizeof(char) * 10;
@@ -89,7 +88,7 @@ int loadKeys() {
             /*
             strcpy(keys[i], record);
             keys[i][14] = '\0';*/
-            keys[i] = atol(record);
+            keys[i] = atoll(record);
             record = strtok(NULL, " ");
             i++;
         }
@@ -103,10 +102,10 @@ void printBlocks(struct blocks b) {
         int j = 0;
         printf("col %i [", b.blocks[i].col);          
         while(b.blocks[i].elements[j].index != -1) {
-            printf("[%i] %f, key %ld ",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value, keys[b.blocks[i].elements[j].index]);
+            printf("[%i] %f, key %lld ",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value, keys[b.blocks[i].elements[j].index]);
             j++;
         }
-        printf("] - sig %ld\n", b.blocks[i].signature);
+        printf("] - sig %lld\n", b.blocks[i].signature);
     } 
 
 }
@@ -153,8 +152,8 @@ char* addKey(char key1[], char *key2) {
     return placeValues;
 }
 
-long getSignature(struct element elements[]) {
-    long signature = 0;
+long long getSignature(struct element elements[]) {
+    long long signature = 0;
     
     for (int i=0; i<blocksize; i++) {
         struct element e = elements[i];
@@ -311,73 +310,58 @@ struct blocks getAllBlocks(float dia) {
     qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
     return allBlocks;
 }
-/*
-void getCollisions(struct blocks allBlocks) {
+
+struct collisions getCollisions(struct blocks allBlocks) {
     struct collisions c;
     c.collisions = malloc(allBlocks.count * sizeof(struct blocks));
     
     struct block *currentBlock;
     int collisionCount = 0;
-    int blockCount = 0;
     
     int i = 0;
-    
-    do {
-        currentBlock = &allBlocks.blocks[i++];
-        
-    } while(currentBlock->signature == allBlocks.blocks[i].signature);
-    
-    
-    for(int i = 0; i < allBlocks.count; i++) {
-    
-        if(currentSig == currentBlock->signature) {
-            c.collisions[c.count].blocks[b.count++] = currentBlock;
-        
-        } else {
-            c.collisions[c.count].blocks[c.collisions[c.count].count++] = b;
-            currentSig = allBlocks[
+
+    while(i < allBlocks.count) {
+        int blockCount = 0;        
+        do {
+            currentBlock = &allBlocks.blocks[i++];
+            blockCount++;
+        } while(currentBlock->signature == allBlocks.blocks[i].signature);
+        //printf("[before] blockCount %i\n", blockCount);
+        //collision found
+        if(blockCount > 1) {
+            c.collisions[collisionCount].blocks = malloc(blockCount * sizeof(struct block));
+            c.collisions[collisionCount].count = blockCount;
+            for(blockCount; blockCount > 0; blockCount--) {
+                c.collisions[collisionCount++].blocks[blockCount-1] = allBlocks.blocks[i-blockCount]; 
+            }
+            printf("[after] blockCount %i\n", blockCount);
         }
-        
     }
-    
-}*/
+    c.count = collisionCount;
+
+    for(int j=0; j < c.count; j++) {
+        struct blocks b = c.collisions[j];
+        printf("\nsignature %s\n", b.blocks[0].signature);
+        for(int k=0; k<b.count; k++) {
+            struct block bl = b.blocks[k];
+            printf("col %i: [", bl.col);
+            for(int l=0; l < blocksize; l++) {
+                printf("%s, ", bl.elements[l].index);
+            }
+            printf("]\n");
+        }
+    }
+
+    return c;
+}
  
 int main(int argc, char* argv[]) {
     loadMatrix();
     loadKeys();
     
-    //struct blocks b = getAllBlocks(0.000001);
+    struct blocks b = getAllBlocks(0.000001);
     //printBlocks(b);
-
-                                   printf("CHAR_BIT   = %d\n", CHAR_BIT);
-                                   printf("MB_LEN_MAX = %d\n", MB_LEN_MAX);
-                                   printf("\n");
-                                   
-                                   printf("CHAR_MIN   = %+d\n", CHAR_MIN);
-                                   printf("CHAR_MAX   = %+d\n", CHAR_MAX);
-                                   printf("SCHAR_MIN  = %+d\n", SCHAR_MIN);
-                                   printf("SCHAR_MAX  = %+d\n", SCHAR_MAX);
-                                   printf("UCHAR_MAX  = %u\n",  UCHAR_MAX);
-                                   printf("\n");
-                                   
-                                   printf("SHRT_MIN   = %+d\n", SHRT_MIN);
-                                   printf("SHRT_MAX   = %+d\n", SHRT_MAX);
-                                   printf("USHRT_MAX  = %u\n",  USHRT_MAX);
-                                   printf("\n");
-                                   
-                                   printf("INT_MIN    = %+d\n", INT_MIN);
-                                   printf("INT_MAX    = %+d\n", INT_MAX);
-                                   printf("UINT_MAX   = %u\n",  UINT_MAX);
-                                   printf("\n");
-                                   
-                                   printf("LONG_MIN   = %+ld\n", LONG_MIN);
-                                   printf("LONG_MAX   = %+ld\n", LONG_MAX);
-                                   printf("ULONG_MAX  = %lu\n",  ULONG_MAX);
-                                   printf("\n");
-                                   
-                                   printf("LLONG_MIN  = %+lld\n", LLONG_MIN);
-                                   printf("LLONG_MAX  = %+lld\n", LLONG_MAX);
-                                   printf("ULLONG_MAX = %llu\n",  ULLONG_MAX);
+    getCollisions(b);
                                    
     return (EXIT_SUCCESS);
 }
