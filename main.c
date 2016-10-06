@@ -125,51 +125,8 @@ void printCollisions(struct collisions c) {
     }
 }
 
-//adds the 2 keys together
-char* addKey(char key1[], char *key2) {
-    int length1 = strlen(key1);
-    int length2 = strlen(key2);
-    int longest = (length1 + length2)/2.0 + abs(length1 - length2)/2.0;
-    char *placeValues = malloc((longest+2) * sizeof(char));
-
-    int valueToAdd;
-    int carryOver = 0;
-    int i = longest;
-    while (i >= 0) {
-        valueToAdd = carryOver;
-        if(i > 0) {
-            if((longest - i) < length1) {
-                int adjustedIndex = length1 - longest + i - 1;
-                valueToAdd += (key1[adjustedIndex] - '0');
-            }
-            if((longest - i) < length2) {
-                int adjustedIndex = length2 - longest + i - 1;
-                valueToAdd += (key2[adjustedIndex] - '0');
-            }
-        }
-        
-        carryOver = 0;
-        if (valueToAdd > 9 ) {
-            valueToAdd = valueToAdd - 10;
-            carryOver++;
-        }
-        
-        placeValues[i] = valueToAdd + '0';
-        i--;
-    }
-    
-    if(placeValues[0] == '0') {
-        for (int j = 0; j < longest+1; j++){
-            placeValues[j]= placeValues[j+1];
-        }
-    }
-    //free(key1);
-    return placeValues;
-}
-
 long long getSignature(struct element elements[]) {
     long long signature = 0;
-    
     for (int i=0; i<blocksize; i++) {
         struct element e = elements[i];
         signature += keys[e.index];
@@ -195,34 +152,6 @@ int blockComp(const void* p1, const void* p2) {
         return -1;
     }
     return (elem1->signature > elem2->signature);
-}
-
-int findCombinations(struct blocks *b, struct element neighbourhood[], int neighbourhoodSize, int start, int currLen, bool used[], int col) {    
-    if (currLen == blocksize) {
-        b->blocks[b->count].elements = malloc((blocksize+1) * sizeof(struct element)); 
-        b->blocks[b->count].col = col;
-        int blockCount = 0;
-	for (int i = 0; i < neighbourhoodSize; i++) {
-	    if (used[i] == true) {
-                b->blocks[b->count].elements[blockCount++] = neighbourhood[i];
-	    }
-	}
-        b->blocks[b->count].elements[blocksize] = neighbourhood[neighbourhoodSize]; //ensures the last item is -1
-        b->blocks[b->count].signature = getSignature(b->blocks[b->count].elements);
-        return 1;
-    }
-    if (start == neighbourhoodSize) {
-        return 0;
-    }
-    int new = 0;
-
-    used[start] = true;
-    b->count += findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen + 1, used, col);
-
-    used[start] = false;
-    b->count += findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen, used, col);
-    
-    return new;
 }
 
 struct neighbourhoods getNeighbourhoods(int col, float dia) { 	
@@ -290,25 +219,48 @@ struct neighbourhoods getNeighbourhoods(int col, float dia) {
     return n;
 }
 
+int findCombinations(struct blocks *b, struct element neighbourhood[], int neighbourhoodSize, int start, int currLen, bool used[], int col) {    
+    if (currLen == blocksize) {
+        b->blocks[b->count].elements = malloc((blocksize+1) * sizeof(struct element)); 
+        b->blocks[b->count].col = col;
+        int blockCount = 0;
+	for (int i = 0; i < neighbourhoodSize; i++) {
+	    if (used[i] == true) {
+                b->blocks[b->count].elements[blockCount++] = neighbourhood[i];
+	    }
+	}
+        b->blocks[b->count].elements[blocksize] = neighbourhood[neighbourhoodSize]; //ensures the last item is -1
+        b->blocks[b->count].signature = getSignature(b->blocks[b->count].elements);
+        return 1;
+    }
+    if (start == neighbourhoodSize) {
+        return 0;
+    }
+    int new = 0;
+
+    used[start] = true;
+    b->count += findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen + 1, used, col);
+
+    used[start] = false;
+    b->count += findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen, used, col);
+    
+    return new;
+}
+
 struct blocks getBlocks(struct neighbourhoods *n, int neighbourhoodsCount, int totalBlockCount) {
     struct blocks b;
     b.blocks = malloc(totalBlockCount * sizeof(struct block));
     b.count = 0;
     for(int i = 0; i < neighbourhoodsCount; i++) {
-    //printf("neighbourhoodscount %i | finalresultCount %i\n", neighbourhoodCount, totalBlockCount);
-        //printf("\n-----------COLUMN %i---------\n",i);
         for(int j = 0; j < n[i].count; j++) { 
             int length = 0;
             while(n[i].neighbourhoods[j][length].index != -1) length++;
-            //printf("%i\n", length);
-            free(b.blocks[b.count].elements);
             bool used[length];
-            memset(used, 0, sizeof(used));
+            memset(used, false, sizeof(used));
             findCombinations(&b, n[i].neighbourhoods[j], length, 0, 0, used, n[i].col);        
             free(n[i].neighbourhoods[j]);
         }
         free(n[i].neighbourhoods);
-        //printf("blockCount %i, totalBlockCount %i\n", b.count, n.blockCount);
     }
     free(n);
     return b;
@@ -360,9 +312,9 @@ int main(int argc, char* argv[]) {
     loadKeys();
     
     struct blocks b = getAllBlocks(0.000001);
-    //printBlocks(b);
-    struct collisions c = getCollisions(b);
-    printCollisions(c);
+    printf("total memory usage should be %ldmb\n", (b.count *(sizeof(struct block) * 4 * sizeof(struct element)))/1000000);
+    //struct collisions c = getCollisions(b);
+    //printCollisions(c);
                                    
     return (EXIT_SUCCESS);
 }
