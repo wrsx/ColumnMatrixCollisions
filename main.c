@@ -322,12 +322,12 @@ struct neighbourhoods getNeighbourhoods(int col, float dia) {
 
 int findCombinations(struct blocks *b, struct element neighbourhood[], int neighbourhoodSize, int start, int currLen, bool used[], int col) {
     if (currLen == blocksize) {
-        omp_lock_t writelock;
-        omp_init_lock(&writelock);
-        omp_set_lock(&writelock);
-        int blockCount = b->count++;
-        omp_unset_lock(&writelock);
-        
+        int blockCount;
+         #pragma omp atomic capture
+        {
+            blockCount = b->count;
+            b->count++;
+        }   
         b->blocks[blockCount].elements = malloc((blocksize+1) * sizeof(struct element));
         b->blocks[blockCount].col = col;
         int elementCount = 0;
