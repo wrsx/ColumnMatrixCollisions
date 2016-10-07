@@ -60,7 +60,6 @@ int loadMatrix() {
         record = strtok(line, ",");
         while (record != NULL)
         {
-            //printf("Recording: to [%d][%d] \n", i, j);
             data[j][i].index = i;
             data[j][i].value = atof(record);
             j++;
@@ -87,10 +86,6 @@ int loadKeys() {
         record = strtok(line, " ");
         while (record != NULL)
         {
-            //printf("Recording: %s to [%d] \n", record, i);
-            /*
-             strcpy(keys[i], record);
-             keys[i][14] = '\0';*/
             keys[i] = atoll(record);
             record = strtok(NULL, " ");
             i++;
@@ -151,109 +146,11 @@ int blockComp(const void* p1, const void* p2) {
     const struct block *elem1 = p1;
     const struct block *elem2 = p2;
     
-    //printf("comparing signature %lld to %lld\n", elem1->signature, elem2->signature);
-    
     if(elem1->signature < elem2->signature) {
         return -1;
     }
     return (elem1->signature > elem2->signature);
 }
-
-size_t partition(void *a, size_t p, size_t r, size_t size, int (*compar)(const void* , const void*)) {
-    //char *cArr = (char*) a;
-    char lt[r-p][size];
-    char gt[r-p][size];
-    size_t i, j;
-    void *key = a + r*size;
-    size_t lt_n, gt_n = 0;
-    
-//#pragma omp parallel for
-    for(i = p; i < r; i++){
-        //printf("last %lld\n", ((struct block*)(key))->signature);
-        //printf("first %lld\n",((struct block*)(a+i*size))->signature);
-
-        
-        if((*compar)(a + i*size, a + r*size) < 0) {
-            memcpy(lt[lt_n++], a + i*size, size);
-        }else{
-            memcpy(gt[gt_n++], a + i*size, size);
-        }
-    }
-    
-    for(i = 0; i < lt_n; i++){
-        memcpy(a + (p+i)*size, lt[i], size);
-    }
-    memcpy(a + (p+lt_n)*size, key, size);
-    
-    for(j = 0; j < gt_n; j++){
-        memcpy(a + (p+lt_n+j+1)*size, gt[j], size);
-    }
-    return p + lt_n;
-}
-
-void quicksort(void * a, size_t p, size_t r, size_t size, int (*compar)(const void* , const void*))
-{
-    size_t div;
-    if(p < r) {
-        div = partition(a, p, r, size, compar);
-//#pragma omp parallel sections
-        {
-//#pragma omp section
-            quicksort(a, p, div - 1, size, compar);
-//#pragma omp section
-            quicksort(a, div + 1, r, size, compar);
-            
-        }
-    }
-}
-
-/*
-int partition(void* arr, int low, int high, size_t size, int (*compar)(const void* , const void*))
-{
-    char* cArr = (char*) arr;
-    int i;
-    int q
-    char *pivotValue = cArr + size * right;
-    int index = left;
-    
-    swap(cArr + pivotIndex*size, cArr + right*size, size);
-    
-    for(i = left; i < right; i++) {
-        if(compar((void*)(cArr + size * i), (void*) pivotValue) < 0) {
-            swap(cArr + size * i, cArr + size * index, size);
-            index++;
-        }
-    }
-    swap(cArr + size * index, cArr + size * right, size);
-    return index;
-}
-*/
-
-/*
-int partition(void *a, int low, int high, size_t size, int (*compar)(const void* , const void*)) {
-    char *cArr = (char*) a;
-    void *pivot_item = cArr + low*size;
-    int left = low;
-    int right = high;
-    
-    while (left < right) {
-        while(compar((void*)(cArr + left*size), pivot_item) < 1) left++;
-        while(compar((void*)(cArr + right*size), pivot_item) > 0) right--;
-        if (left < right) swap(cArr + left*size, cArr + right*size, size);
-    }
-    swap(cArr + low*size, cArr + right*size, size);
-    return right;
-}
-
-void quicksort(void* base, int left, int right, size_t size, int (*compar)(const void* , const void*))
-{
-    right--;
-    if(left < right) {
-        int pivot = partition(base, left, right, size, compar);
-        quicksort(base, left, pivot-1, size, compar);
-        quicksort(base, pivot+1, right, size, compar);
-    }
-}*/
 
 struct neighbourhoods getNeighbourhoods(int col, float dia) {
     //sort the column by size of the value
@@ -269,7 +166,7 @@ struct neighbourhoods getNeighbourhoods(int col, float dia) {
     struct element neighbourhood[rows];
     memset(&neighbourhood, -1, sizeof(neighbourhood));
     
-    float min, max = 0;
+    float min = 0, max = 0;
     int neighbourhoodSize = 0;
     int lastNeighbourhoodSize = 0;
     
@@ -323,7 +220,7 @@ struct neighbourhoods getNeighbourhoods(int col, float dia) {
 int findCombinations(struct blocks *b, struct element neighbourhood[], int neighbourhoodSize, int start, int currLen, bool used[], int col) {
     if (currLen == blocksize) {
         int blockCount;
-         #pragma omp atomic capture
+        #pragma omp atomic capture
         {
             blockCount = b->count;
             b->count++;
@@ -334,11 +231,11 @@ int findCombinations(struct blocks *b, struct element neighbourhood[], int neigh
         for (int i = 0; i < neighbourhoodSize; i++) {
             if (used[i] == true) {
                 struct element current = neighbourhood[i];
-                b->blocks[blockCount].elements[elementCount++] = current;//neighbourhood[i];
+                b->blocks[blockCount].elements[elementCount++] = current;
             }
         }
         struct element last = neighbourhood[neighbourhoodSize];
-        b->blocks[blockCount].elements[blocksize] = last;//neighbourhood[neighbourhoodSize]; //ensures the last item is -1
+        b->blocks[blockCount].elements[blocksize] = last; //ensures the last item is -1
         b->blocks[blockCount].signature = getSignature(b->blocks[blockCount].elements);
         return 1;
     }
@@ -378,8 +275,6 @@ struct blocks getBlocks(struct neighbourhoods *n, int neighbourhoodsCount, int t
 }
 
 struct blocks getAllBlocks(float dia) {
-    clock_t start = clock(), diff;
-
     struct neighbourhoods *allNeighbourhoods = malloc(cols * sizeof(struct neighbourhoods));
     int totalBlockCount =0;
     #pragma omp parallel for
@@ -388,16 +283,8 @@ struct blocks getAllBlocks(float dia) {
         totalBlockCount += allNeighbourhoods[i].blockCount;
     }
     struct blocks allBlocks = getBlocks(allNeighbourhoods, cols, totalBlockCount);
-        printf("totalBlockCount %i\n", totalBlockCount);
-    //printf("signature of final block %lld\n", allBlocks.blocks[29353147].signature);
-    //quicksort(allBlocks.blocks, 0, allBlocks.count-1, sizeof(struct block), blockComp);
-    diff = clock() - start;
     
-    int msec = diff * 1000 / CLOCKS_PER_SEC;
-    printf("Time taken %d seconds %d milliseconds\n", msec/1000, msec%1000);
-    
-    //qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
-
+    qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
     return allBlocks;
 }
 
@@ -435,11 +322,8 @@ int main(int argc, char* argv[]) {
     loadKeys();
     
     struct blocks b = getAllBlocks(0.000001);
-    printf("%d\n", b.count);
-    //printBlocks(b);
-    //for(int i=0; i < b.count; i++) printf("%lld\n", b.blocks[i].signature);
-    //struct collisions c = getCollisions(b);
-    //printCollisions(c);
+    struct collisions c = getCollisions(b);
+    printCollisions(c);
     
     return (EXIT_SUCCESS);
 }
