@@ -282,16 +282,15 @@ struct blocks getAllBlocks(float dia) {
         allNeighbourhoods[i] = getNeighbourhoods(i, dia);
         totalBlockCount += allNeighbourhoods[i].blockCount;
     }
-    struct blocks allBlocks = getBlocks(allNeighbourhoods, cols, totalBlockCount);
-    
-    qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
+    struct blocks allBlocks = getBlocks(allNeighbourhoods, cols, totalBlockCount); 
     return allBlocks;
 }
 
 struct collisions getCollisions(struct blocks allBlocks) {
+    qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
+
     struct collisions c;
-    c.collisions = malloc(allBlocks.count * sizeof(struct blocks));
-    
+    c.collisions = malloc(allBlocks.count * sizeof(struct blocks));  
     struct block *currentBlock;
     int collisionCount = 0;
     
@@ -299,16 +298,30 @@ struct collisions getCollisions(struct blocks allBlocks) {
     
     while(i < allBlocks.count) {
         int blockCount = 0;
+        int trueBlockCount = 0;
+        //this is used to ensure collisions do not occur inside the same column
+        bool columns[cols];
+        memset(columns, false, sizeof(columns));
         do {
             currentBlock = &allBlocks.blocks[i++];
+            //if no collision in that column
+            if(columns[currentBlock->col] == false) {
+                trueBlockCount++;
+                columns[currentBlock->col] = true;
+            }
             blockCount++;
         } while(currentBlock->signature == allBlocks.blocks[i].signature);
         //collision found
-        if(blockCount > 1) {
-            c.collisions[collisionCount].blocks = malloc(blockCount * sizeof(struct block));
-            c.collisions[collisionCount].count = blockCount;
+        if(blockCount != trueBlockCount) printf("blockCount %d, trueBlockCount %d\n", blockCount,trueBlockCount); 
+        if(trueBlockCount > 1) {
+            c.collisions[collisionCount].blocks = malloc(trueBlockCount * sizeof(struct block));
+            c.collisions[collisionCount].count = trueBlockCount;
             for(blockCount; blockCount > 0; blockCount--) {
-                c.collisions[collisionCount].blocks[blockCount-1] = allBlocks.blocks[i-blockCount];
+                //if first instance of collision in that column
+                if(columns[allBlocks.blocks[i-blockCount].col] == true) {
+                    c.collisions[collisionCount].blocks[--trueBlockCount] = allBlocks.blocks[i-blockCount];
+                    columns[allBlocks.blocks[i-blockCount].col] = false;
+                }                
             }
             collisionCount++;
         }
@@ -318,12 +331,25 @@ struct collisions getCollisions(struct blocks allBlocks) {
 }
 
 int main(int argc, char* argv[]) {
+    clock_t start = clock();
     loadMatrix();
     loadKeys();
-    
+    int msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
+    printf("Time taken to load data: %d seconds %d milliseconds\n", msec/1000, msec%1000);    
+
+    start = clock();
     struct blocks b = getAllBlocks(0.000001);
+    msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
+    printf("Time taken to find %d blocks: %d seconds %d milliseconds\n", b.count, msec/1000, msec%1000);
+
+    start = clock();
     struct collisions c = getCollisions(b);
     printCollisions(c);
+    msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
+    printf("Time taken to find %d collisions: %d seconds %d milliseconds\n", c.count, msec/1000, msec%1000);   
+
+
+
     
     return (EXIT_SUCCESS);
 }
