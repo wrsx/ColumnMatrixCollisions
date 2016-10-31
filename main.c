@@ -18,27 +18,27 @@ struct element {
     float value;
 };
 
-struct neighbourhoods {
+//a group of elements, either a block or neighbourhood
+struct elementGroup {
     int count;
-    int blockCount;
     int col;
-    struct element **neighbourhoods;
-};
-
-struct block {
+    //optional (used in block)
     long long signature;
-    int col;
     struct element *elements;
 };
 
-struct blocks {
+struct elementGroups {
     int count;
-    struct block *blocks;
+    //optional (used in neighbourhood)
+    int blockCount;
+    //optional (used in neighbourhood)
+    int col;
+    struct elementGroup *groups;
 };
 
 struct collisions {
     int count;
-    struct blocks *collisions;
+    struct elementGroups *collisions;
 };
 
 struct element data[cols][rows];
@@ -95,28 +95,28 @@ int loadKeys() {
 }
 
 
-void printBlocks(struct blocks b) {
-    for(int i = 0; i < b.count; i++) {
+void printBlocks(struct elementGroups blocks) {
+    for(int i = 0; i < blocks.count; i++) {
         int j = 0;
-        printf("col %i [", b.blocks[i].col);
-        while(b.blocks[i].elements[j].index != -1) {
-            printf("[%i] %f, key %lld ",b.blocks[i].elements[j].index, b.blocks[i].elements[j].value, keys[b.blocks[i].elements[j].index]);
+        printf("col %i [", blocks.groups[i].col);
+        while(blocks.groups[i].elements[j].index != -1) {
+            printf("[%i] %f, key %lld ",blocks.groups[i].elements[j].index, blocks.groups[i].elements[j].value, keys[blocks.groups[i].elements[j].index]);
             j++;
         }
-        printf("] - sig %lld\n", b.blocks[i].signature);
+        printf("] - sig %lld\n", blocks.groups[i].signature);
     }
     
 }
 
 void printCollisions(struct collisions c) {
     for(int i = 0; i < c.count; i++) {
-        struct blocks b = c.collisions[i];
-        printf("\nsignature %llu\n", b.blocks[0].signature);
-        for(int j = 0; j < b.count; j++) {
-            struct block bl = b.blocks[j];
-            printf("col %i: [", bl.col);
+        struct elementGroups blocks = c.collisions[i];
+        printf("\nsignature %llu\n", blocks.groups[0].signature);
+        for(int j = 0; j < blocks.count; j++) {
+            struct elementGroup block = blocks.groups[j];
+            printf("col %i: [", block.col);
             for(int k = 0; k  < blocksize; k++) {
-                printf("%f, ", bl.elements[k].value);
+                printf("%f, ", block.elements[k].value);
             }
             printf("]\n");
         }
@@ -125,7 +125,7 @@ void printCollisions(struct collisions c) {
 
 long long getSignature(struct element elements[]) {
     long long signature = 0;
-    for (int i=0; i<blocksize; i++) {
+    for (int i = 0; i<blocksize; i++) {
         struct element e = elements[i];
         signature += keys[e.index];
     }
@@ -143,8 +143,8 @@ int elementComp(const void* p1, const void* p2) {
 }
 
 int blockComp(const void* p1, const void* p2) {
-    const struct block *elem1 = p1;
-    const struct block *elem2 = p2;
+    const struct elementGroup *elem1 = p1;
+    const struct elementGroup *elem2 = p2;
     
     if(elem1->signature < elem2->signature) {
         return -1;
@@ -152,19 +152,19 @@ int blockComp(const void* p1, const void* p2) {
     return (elem1->signature > elem2->signature);
 }
 
-struct neighbourhoods getNeighbourhoods(int col, float dia) {
+struct elementGroups getNeighbourhoods(int col, float dia) {
     //sort the column by size of the value
     struct element *column = data[col];
     qsort(column, rows, sizeof(struct element), elementComp);
     
-    struct neighbourhoods n;
-    n.neighbourhoods = malloc(cols * sizeof(struct element *));
-    n.count = 0;
-    n.blockCount = 0;
-    n.col = col;
+    struct elementGroups neighbourhoods;
+    neighbourhoods.groups = malloc(cols * sizeof(struct element *));
+    neighbourhoods.count = 0;
+    neighbourhoods.blockCount = 0;
+    neighbourhoods.col = col;
     
-    struct element neighbourhood[rows];
-    memset(&neighbourhood, -1, sizeof(neighbourhood));
+    struct element temp[rows];
+    memset(&temp, -1, sizeof(temp));
     
     float min = 0, max = 0;
     int neighbourhoodSize = 0;
@@ -172,12 +172,12 @@ struct neighbourhoods getNeighbourhoods(int col, float dia) {
     
     for(int i = 0; i < rows; i++) {
         //fprintf(stderr,"[%d] %f\n",col[i].index, col[i].value);
-        if(neighbourhood[0].index == -1) {
+        if(temp[0].index == -1) {
             min = max = column[i].value;
-            neighbourhood[neighbourhoodSize++] = column[i];
+            temp[neighbourhoodSize++] = column[i];
         } else {
             if (fabs(column[i].value - min) < dia && fabs(column[i].value - max) < dia) {
-                neighbourhood[neighbourhoodSize++] = column[i];
+                temp[neighbourhoodSize++] = column[i];
                 if(column[i].value < min) {
                     min = column[i].value;
                 } else if(column[i].value > max) {
@@ -191,136 +191,139 @@ struct neighbourhoods getNeighbourhoods(int col, float dia) {
                  -If the block is larger or equal in size to the previous block
                  This ensures that the current block is not a sub-block of the previous block
                  */
-                if((neighbourhood[0].index != -1) && (neighbourhoodSize >= blocksize) && (neighbourhoodSize >= lastNeighbourhoodSize)) {
+                if((temp[0].index != -1) && (neighbourhoodSize >= blocksize) && (neighbourhoodSize >= lastNeighbourhoodSize)) {
                     if(neighbourhoodSize > blocksize) { //need to calculate the total combinations of
                         //formula for working out combinations of size k(blocksize) for n(tempcount) values
-                        n.blockCount += round(exp(lgamma(neighbourhoodSize+1)-lgamma(neighbourhoodSize-blocksize+1))/tgamma(blocksize+1));
+                        neighbourhoods.blockCount += round(exp(lgamma(neighbourhoodSize+1)-lgamma(neighbourhoodSize-blocksize+1))/tgamma(blocksize+1));
                     } else {
-                        n.blockCount++;
+                        neighbourhoods.blockCount++;
                     }
                     //allocate the memory to store the neighbourhoods
-                    n.neighbourhoods[n.count] = malloc((neighbourhoodSize+1) * sizeof(struct element));
-                    //loops over all the elements in temp and one extra to ensure -1 is the last value in the array
-                    for(int j = 0; j <= neighbourhoodSize; j++) {
-                        n.neighbourhoods[n.count][j] = neighbourhood[j];
+                    neighbourhoods.count = neighbourhoodSize;                    
+                    neighbourhoods.groups = malloc(neighbourhoods.count * sizeof(struct elementGroup));
+                    //loops over all the elements in temp and adds them to the neighbourhoods struct
+                    while(neighbourhoodSize != 0) {
+                        neighbourhoodSize--;
+                        neighbourhoods.groups[neighbourhoods.count].elements[neighbourhoodSize] = temp[neighbourhoodSize];
                     }
-                    n.count++;
+                    neighbourhoods.count++;
                 }
                 min = max = column[i].value;
-                memset(&neighbourhood, -1, sizeof(neighbourhood));
+                memset(&temp, -1, sizeof(temp));
                 i = i - neighbourhoodSize;
                 lastNeighbourhoodSize = neighbourhoodSize;
                 neighbourhoodSize = 0;
             }
         }
     }
-    return n;
+    return neighbourhoods;
 }
 
-int findCombinations(struct blocks *b, struct element neighbourhood[], int neighbourhoodSize, int start, int currLen, bool used[], int col) {
+void findCombinations(struct elementGroups *blocks, struct elementGroup neighbourhood, int start, int currLen, bool used[]) {
     if (currLen == blocksize) {
         int blockCount;
         #pragma omp atomic capture
         {
-            blockCount = b->count;
-            b->count++;
+            blockCount = blocks->count;
+            blocks->count++;
         }   
-        b->blocks[blockCount].elements = malloc((blocksize+1) * sizeof(struct element));
-        b->blocks[blockCount].col = col;
+        blocks->groups[blockCount].elements = malloc((blocksize+1) * sizeof(struct element));
+        blocks->groups[blockCount].col = neighbourhood.col;
         int elementCount = 0;
-        for (int i = 0; i < neighbourhoodSize; i++) {
+        for (int i = 0; i < neighbourhood.count; i++) {
             if (used[i] == true) {
-                struct element current = neighbourhood[i];
-                b->blocks[blockCount].elements[elementCount++] = current;
+                struct element current = neighbourhood.elements[i];
+                blocks->groups[blockCount].elements[elementCount++] = current;
             }
         }
-        struct element last = neighbourhood[neighbourhoodSize];
-        b->blocks[blockCount].elements[blocksize] = last; //ensures the last item is -1
-        b->blocks[blockCount].signature = getSignature(b->blocks[blockCount].elements);
-        return 1;
+        struct element last = neighbourhood.elements[neighbourhood.count];
+        blocks->groups[blockCount].elements[blocksize] = last; //ensures the last item is -1
+        blocks->groups[blockCount].signature = getSignature(blocks->groups[blockCount].elements);
+        return;
     }
-    if (start == neighbourhoodSize) {
-        return 0;
+    if (start == neighbourhood.count) {
+        return;
     }
-    int new = 0;
     
     used[start] = true;
-    findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen + 1, used, col);
+    findCombinations(blocks, neighbourhood, start + 1, currLen + 1, used);
     
     used[start] = false;
-    findCombinations(b, neighbourhood, neighbourhoodSize, start + 1, currLen, used, col);
-    
-    return new;
+    findCombinations(blocks, neighbourhood, start + 1, currLen, used);
 }
 
-struct blocks getBlocks(struct neighbourhoods *n, int neighbourhoodsCount, int totalBlockCount) {
-    struct blocks b;
-    b.blocks = malloc(totalBlockCount * sizeof(struct block));
-    b.count = 0;
-    
-    #pragma omp parallel for
-    for(int i = 0; i < neighbourhoodsCount; i++) {
-        for(int j = 0; j < n[i].count; j++) {
-            int length = 0;
-            while(n[i].neighbourhoods[j][length].index != -1) length++;
-            bool used[length];
-            memset(used, false, sizeof(used));
-            findCombinations(&b, n[i].neighbourhoods[j], length, 0, 0, used, n[i].col);
-            free(n[i].neighbourhoods[j]);
-        }
-        free(n[i].neighbourhoods);
+struct elementGroups getBlocks(struct elementGroups neighbourhoods) {
+    struct elementGroups blocks;
+    blocks.groups = malloc(neighbourhoods.count * sizeof(struct elementGroup));
+    blocks.count = 0;
+    #pragma omp parallel for    
+    for(int i = 0; i < neighbourhoods.count; i++) {
+        int length = neighbourhoods.groups[i].count;
+        bool used[length];
+        memset(used, false, sizeof(used));
+        findCombinations(&blocks, neighbourhoods.groups[i], 0, 0, used);
     }
-    free(n);
-    return b;
+    return blocks;
 }
 
-struct blocks getAllBlocks(float dia) {
-    struct neighbourhoods *allNeighbourhoods = malloc(cols * sizeof(struct neighbourhoods));
-    int totalBlockCount =0;
+struct elementGroups getAllNeighbourhoods(float dia) {
+    struct elementGroups temp[cols];
+    int totalBlockCount = 0;
+    int totalNeighbourhoodCount = 0;
     #pragma omp parallel for
     for(int i = 0; i < cols; i++) {
-        allNeighbourhoods[i] = getNeighbourhoods(i, dia);
-        totalBlockCount += allNeighbourhoods[i].blockCount;
+        temp[i] = getNeighbourhoods(i, dia);
+        totalBlockCount += temp[i].blockCount;
+        totalNeighbourhoodCount += temp[i].count;
+    }    
+    struct elementGroups neighbourhoods;
+    neighbourhoods.groups = malloc(totalNeighbourhoodCount * sizeof(struct elementGroup));
+    neighbourhoods.count = 0;
+    neighbourhoods.blockCount = totalBlockCount;
+    for(int i = 0; i < cols; i++) {
+        struct elementGroups column = temp[i];
+        for(int j = 0; j < column.count; j++) {
+            neighbourhoods.groups[neighbourhoods.count++] = column.groups[j];
+        }
     }
-    struct blocks allBlocks = getBlocks(allNeighbourhoods, cols, totalBlockCount); 
-    return allBlocks;
+    return neighbourhoods;
 }
 
-struct collisions getCollisions(struct blocks allBlocks) {
-    qsort(allBlocks.blocks, allBlocks.count, sizeof(struct block), blockComp);
+struct collisions getCollisions(struct elementGroups blocks) {
+    qsort(blocks.groups, blocks.count, sizeof(struct elementGroup), blockComp);
 
     struct collisions c;
-    c.collisions = malloc(allBlocks.count * sizeof(struct blocks));  
-    struct block *currentBlock;
+    c.collisions = malloc(blocks.count * sizeof(struct elementGroups));  
+    struct elementGroup *currentBlock;
     int collisionCount = 0;
     
     int i = 0;
     
-    while(i < allBlocks.count) {
+    while(i < blocks.count) {
         int blockCount = 0;
         int trueBlockCount = 0;
         //this is used to ensure collisions do not occur inside the same column
         bool columns[cols];
         memset(columns, false, sizeof(columns));
         do {
-            currentBlock = &allBlocks.blocks[i++];
+            currentBlock = &blocks.groups[i++];
             //if no collision in that column
             if(columns[currentBlock->col] == false) {
                 trueBlockCount++;
                 columns[currentBlock->col] = true;
             }
             blockCount++;
-        } while(currentBlock->signature == allBlocks.blocks[i].signature);
+        } while(currentBlock->signature == blocks.groups[i].signature);
         //collision found
         if(blockCount != trueBlockCount) printf("blockCount %d, trueBlockCount %d\n", blockCount,trueBlockCount); 
         if(trueBlockCount > 1) {
-            c.collisions[collisionCount].blocks = malloc(trueBlockCount * sizeof(struct block));
+            c.collisions[collisionCount].groups = malloc(trueBlockCount * sizeof(struct elementGroup));
             c.collisions[collisionCount].count = trueBlockCount;
             for(blockCount; blockCount > 0; blockCount--) {
                 //if first instance of collision in that column
-                if(columns[allBlocks.blocks[i-blockCount].col] == true) {
-                    c.collisions[collisionCount].blocks[--trueBlockCount] = allBlocks.blocks[i-blockCount];
-                    columns[allBlocks.blocks[i-blockCount].col] = false;
+                if(columns[blocks.groups[i-blockCount].col] == true) {
+                    c.collisions[collisionCount].groups[--trueBlockCount] = blocks.groups[i-blockCount];
+                    columns[blocks.groups[i-blockCount].col] = false;
                 }                
             }
             collisionCount++;
@@ -335,10 +338,15 @@ int main(int argc, char* argv[]) {
     loadMatrix();
     loadKeys();
     int msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
-    printf("Time taken to load data: %d seconds %d milliseconds\n", msec/1000, msec%1000);    
+    printf("Time taken to load data: %d seconds %d milliseconds\n", msec/1000, msec%1000);
 
     start = clock();
-    struct blocks b = getAllBlocks(0.000001);
+    struct elementGroups n = getAllNeighbourhoods(0.000001); 
+    msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
+    printf("Time taken to find %d neighbourhoods: %d seconds %d milliseconds\n", n.count, msec/1000, msec%1000);
+
+    start = clock();
+    struct elementGroups b = getBlocks(n);
     msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time taken to find %d blocks: %d seconds %d milliseconds\n", b.count, msec/1000, msec%1000);
 
