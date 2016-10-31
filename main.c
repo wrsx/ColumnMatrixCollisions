@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <time.h>
-//#include <omp.h>
+#include <omp.h>
 //#include <libiomp/omp.h>
 /*
  *
@@ -32,8 +32,6 @@ struct elementGroups {
     int count;
     //optional (used in neighbourhood)
     int blockCount;
-    //optional (used in neighbourhood)
-    int col;
     struct elementGroup *groups;
 };
 
@@ -165,7 +163,6 @@ struct elementGroups getNeighbourhoods(int col, float dia) {
     neighbourhoods.groups = malloc(cols * sizeof(struct elementGroup));
     neighbourhoods.count = 0;
     neighbourhoods.blockCount = 0;
-    neighbourhoods.col = col;
     
     struct element temp[rows];
     memset(&temp, -1, sizeof(temp));
@@ -202,9 +199,10 @@ struct elementGroups getNeighbourhoods(int col, float dia) {
                     } else {
                         neighbourhoods.blockCount++;
                     }
-                    //allocate the memory to store the neighbourhoods
-                    neighbourhoods.groups[neighbourhoods.count].count = neighbourhoodSize;
+                    //allocate the memory to store the neighbourhood's elements
                     neighbourhoods.groups[neighbourhoods.count].elements = malloc(neighbourhoodSize * sizeof(struct element));
+                    neighbourhoods.groups[neighbourhoods.count].count = neighbourhoodSize;                    
+                    neighbourhoods.groups[neighbourhoods.count].col = col;
                     //loops over all the elements in temp and adds them to the neighbourhoods struct
                     for(int j = 0; j < neighbourhoodSize; j++) {
                         neighbourhoods.groups[neighbourhoods.count].elements[j] = temp[j];
@@ -236,10 +234,8 @@ void findCombinations(struct elementGroups *blocks, struct elementGroup neighbou
         for (int i = 0; i < neighbourhood.count; i++) {
             if (used[i] == true) {
                 blocks->groups[blockCount].elements[elementCount++] = neighbourhood.elements[i];
-                //printf("%d\n",neighbourhood.elements[i].index);
             }
         }
-        //printf("\n\n");
         blocks->groups[blockCount].count = elementCount;
         blocks->groups[blockCount].signature = getSignature(blocks->groups[blockCount].elements);
         return;
@@ -259,7 +255,7 @@ struct elementGroups getBlocks(struct elementGroups neighbourhoods) {
     struct elementGroups blocks;
     blocks.groups = malloc(neighbourhoods.blockCount * sizeof(struct elementGroup));
     blocks.count = 0;
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for(int i = 0; i < neighbourhoods.count; i++) {
         int length = neighbourhoods.groups[i].count;
         bool used[length];
@@ -273,7 +269,7 @@ struct elementGroups getAllNeighbourhoods(float dia) {
     struct elementGroups temp[cols];
     int totalBlockCount = 0;
     int totalNeighbourhoodCount = 0;
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for(int i = 0; i < cols; i++) {
         temp[i] = getNeighbourhoods(i, dia);
         totalBlockCount += temp[i].blockCount;
