@@ -3,8 +3,11 @@
 #include <omp.h>
 
 int main(int argc, char** argv) {
+
+    int required=MPI_THREAD_SERIALIZED;
+    int provided;
     // Initialize the MPI environment
-    MPI_Init(NULL, NULL);
+    MPI_Init_thread(NULL, NULL, required, &provided);
 
     // Get the number of processes
     int world_size;
