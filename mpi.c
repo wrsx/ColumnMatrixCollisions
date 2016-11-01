@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     
     int np;
     np = omp_get_num_threads();
-    printf("%d processors available on %s", np, processor_name);
+    printf("%d processors available rank %d\n", np, world_rank);
     
     /*
     printf("Hello world from processor %s, rank %d"
