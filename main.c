@@ -327,13 +327,13 @@ struct collisions getCollisions(struct elementGroups blocks) {
             collisionCount++;
         }
     }
-    printf("colcount %d\n", collisionCount);
     c.count = collisionCount;
     return c;
 }
 
 int main(int argc, char* argv[]) {
     clock_t start = clock();
+    clock_t startTotal = clock();
     loadMatrix();
     loadKeys();
     int msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
@@ -354,7 +354,8 @@ int main(int argc, char* argv[]) {
     msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time taken to find %d collisions: %d seconds %d milliseconds\n", c.count, msec/1000, msec%1000);   
 
-
+    msec = (clock() - startTotal) * 1000 / CLOCKS_PER_SEC;
+    printf("Total time taken: %d seconds %d milliseconds\n", msec/1000, msec%1000);
 
     
     return (EXIT_SUCCESS);
