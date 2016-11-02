@@ -13,7 +13,6 @@
 #define ROWS 4400
 #define BLOCK_SIZE 4
 #define KEY_SIZE 14
-#define N_NODES 12
 
 
 struct element {
@@ -28,6 +27,7 @@ struct colElementGroup {
     int col;
     struct element *elements;
     //optional (used in block)
+    int blockIndexes[BLOCK_SIZE];
     long long signature;
     int blockCount;
 };
@@ -65,11 +65,10 @@ long long *loadKeys() {
     return keys;
 }
 
-struct element **loadMatrix() {
-    long long *keys = loadKeys();
-    struct element **data = malloc(COLS * sizeof(struct element*));
+float **loadMatrix() {
+    float **data = malloc(COLS * sizeof(float*));
     for(int i = 0; i < COLS; i++) {
-        data[i] = malloc(ROWS * sizeof(struct element));
+        data[i] = malloc(ROWS * sizeof(float));
     }
     
     int bufsize = COLS * sizeof(char) * 10;
@@ -87,53 +86,58 @@ struct element **loadMatrix() {
             int j = 0;
             record = strtok(line, ",");
             while (record != NULL) {
-                data[j][i].index = i;
-                data[j][i].value = atof(record);
-                data[j][i].key = keys[i];
-                j++;
+                data[j++][i] = atof(record);
                 record = strtok(NULL, ",");
             }
         }
     }
-    free(keys);
     return data;
 }
 
+struct element **getElementMatrix(float **data, long long *keys) {
+    struct element **elementMatrix = malloc(COLS * sizeof(struct element*));
+    for(int i = 0; i < COLS; i++) {
+        elementMatrix[i] = malloc(ROWS * sizeof(struct element)); 
+        for(int j = 0; j < ROWS; j++) {
+            elementMatrix[i][j].index = j;
+            elementMatrix[i][j].value = data[i][j];
+            elementMatrix[i][j].key = keys[j];
+        }
+    }  
+    return elementMatrix;
+}
 
-
-void printBlocks(struct elementGroups blocks) {
+void printBlocks(struct elementGroups blocks, float **data, long long *keys) {
     for(int i = 0; i < blocks.count; i++) {
-        int j = 0;
         printf("col %i [", blocks.groups[i].col);
-        while(blocks.groups[i].elements[j].index != -1) {
-            printf("[%i] %f, key %lld ",blocks.groups[i].elements[j].index, blocks.groups[i].elements[j].value, blocks.groups[i].elements[j].key);
-            j++;
+        for(int j = 0; j < BLOCK_SIZE; j++) {
+            struct colElementGroup b = blocks.groups[i];
+            printf("[%i] %f, key %lld ", b.blockIndexes[j], data[b.col][b.blockIndexes[j]], keys[b.blockIndexes[j]]);
         }
         printf("] - sig %lld\n", blocks.groups[i].signature);
     }
     
 }
 
-void printCollisions(struct collisions c) {
+void printCollisions(struct collisions c, float **data) {
     for(int i = 0; i < c.count; i++) {
         struct elementGroups blocks = c.collisions[i];
         printf("\nsignature %llu\n", blocks.groups[0].signature);
         for(int j = 0; j < blocks.count; j++) {
-            struct colElementGroup block = blocks.groups[j];
-            printf("col %i: [", block.col);
+            struct colElementGroup b = blocks.groups[j];
+            printf("col %i: [", b.col);
             for(int k = 0; k  < BLOCK_SIZE; k++) {
-                printf("%f, ", block.elements[k].value);
+                printf("%f, ", data[b.col][b.blockIndexes[k]]);
             }
             printf("]\n");
         }
     }
 }
 
-long long getSignature(struct element elements[]) {
+long long getSignature(long long keys[]) {
     long long signature = 0;
     for (int i = 0; i < BLOCK_SIZE; i++) {
-        struct element e = elements[i];
-        signature += e.key;
+        signature += keys[i];
     }
     return signature;
 }
@@ -169,9 +173,9 @@ int groupComp_size(const void* p1, const void* p2) {
 }
 
 
-struct elementGroups getNeighbourhoods(int col, float dia, struct element **data) {
+struct elementGroups getNeighbourhoods(int col, float dia, struct element **elementMatrix) {
     //sort the column by size of the value
-    struct element *column = data[col];
+    struct element *column = elementMatrix[col];
     qsort(column, ROWS, sizeof(struct element), elementComp);
     
     struct elementGroups neighbourhoods;
@@ -229,7 +233,6 @@ struct elementGroups getNeighbourhoods(int col, float dia, struct element **data
             }
         }
     }
-    free(data[col]);
     return neighbourhoods;
 }
 
@@ -250,15 +253,15 @@ struct elementGroups groupArrayToStruct(struct elementGroups temp[], int arrayCo
     return combined;
 }
 
-struct elementGroups getAllNeighbourhoods(float dia, struct element **data) {
+struct elementGroups getAllNeighbourhoods(float dia, struct element **elementMatrix) {
     struct elementGroups temp[COLS];
     int totalNeighbourhoodCount = 0;
     #pragma omp parallel for
     for(int i = 0; i < COLS; i++) {
-        temp[i] = getNeighbourhoods(i, dia, data);
+        temp[i] = getNeighbourhoods(i, dia, elementMatrix);
         totalNeighbourhoodCount += temp[i].count;
+        free(elementMatrix[i]);
     }
-    free(data);
     return groupArrayToStruct(temp, COLS, totalNeighbourhoodCount);
 }
 
@@ -270,15 +273,17 @@ void findCombinations(struct elementGroups *blocks, struct colElementGroup neigh
             blockCount = blocks->count;
             blocks->count++;
         }   
-        blocks->groups[blockCount].elements = malloc(BLOCK_SIZE * sizeof(struct element));
         int elementCount = 0;
+        long long keys[BLOCK_SIZE];
         for (int i = 0; i < neighbourhood.count; i++) {
             if (used[i] == true) {
-                blocks->groups[blockCount].elements[elementCount++] = neighbourhood.elements[i];
+                keys[elementCount] = neighbourhood.elements[i].key;
+                blocks->groups[blockCount].blockIndexes[elementCount] = neighbourhood.elements[i].index;
+                elementCount++;
             }
         }
         blocks->groups[blockCount].count = elementCount;
-        blocks->groups[blockCount].signature = getSignature(blocks->groups[blockCount].elements);
+        blocks->groups[blockCount].signature = getSignature(keys);
         blocks->groups[blockCount].col = neighbourhood.col;        
         return;
     }
@@ -312,25 +317,27 @@ int triangularNumber(int n) {
     return n + triangularNumber(n-1);  
 } 
 
-struct elementGroups getBlocksMPI(struct elementGroups neighbourhoods) {
+struct elementGroups getBlocksParallel(struct elementGroups neighbourhoods) {
     qsort(neighbourhoods.groups, neighbourhoods.count, sizeof(struct colElementGroup), groupComp_size);
-    int bins[N_NODES];
-    int bigNumbers[N_NODES];
-    struct elementGroups nodeBlocks[N_NODES];
+    int n_threads = omp_get_max_threads();
+    int bins[n_threads];
+    int bigNumbers[n_threads];
+    struct elementGroups nodeBlocks[n_threads];
     
     int allocated = 0;
-    for (int i = 0; i < N_NODES; i++) {
+    for (int i = 0; i < n_threads; i++) {
         int remainder = neighbourhoods.count - allocated;
-        int buckets = (N_NODES - i);
+        int buckets = (n_threads - i);
         bins[i] = remainder / buckets;
         allocated += bins[i];
-        bigNumbers[i] = 1 + (i/(N_NODES/6.9)); 
+        //formula for best dividing the amount of big numbers based on the number of threads
+        bigNumbers[i] = 1 + (i+1)*50*pow(n_threads, -1.85); 
     }
 
   
     int totalBlockCount = 0;
     #pragma omp parallel for
-    for (int i = 0; i < N_NODES; i++) {        
+    for (int i = 0; i < n_threads; i++) {        
         struct elementGroups node_neighbourhoods;
         node_neighbourhoods.groups = malloc(bins[i] * sizeof(struct colElementGroup));
         node_neighbourhoods.blockCount = 0;
@@ -359,12 +366,9 @@ struct elementGroups getBlocksMPI(struct elementGroups neighbourhoods) {
         }
         totalBlockCount += node_neighbourhoods.blockCount;
         nodeBlocks[i] = getBlocks(node_neighbourhoods);
-        //printf("node %d will produce %d blocks\n", i, node_neighbourhoods.blockCount);
+        //printf("Thread %d will produce %d blocks\n", i, node_neighbourhoods.blockCount);
     }
-    return groupArrayToStruct(nodeBlocks, N_NODES, totalBlockCount);
-
-    
-
+    return groupArrayToStruct(nodeBlocks, n_threads, totalBlockCount);
 }
 
 struct collisions getCollisions(struct elementGroups blocks) {
@@ -417,19 +421,21 @@ struct collisions getCollisions(struct elementGroups blocks) {
 int main(int argc, char* argv[]) {
     clock_t start = clock();
     clock_t startTotal = clock();
-    struct element **data = loadMatrix();
+    long long *keys = loadKeys();
+    float **data = loadMatrix();
+    struct element **elementMatrix = getElementMatrix(data, keys);
     int msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time taken to load data: %d seconds %d milliseconds\n", msec/1000, msec%1000);
 
-    
     start = clock();
-    struct elementGroups n = getAllNeighbourhoods(0.000001, data);
+    struct elementGroups n = getAllNeighbourhoods(0.000001, elementMatrix);
+    free(elementMatrix);
     msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time taken to find %d neighbourhoods: %d seconds %d milliseconds\n", n.count, msec/1000, msec%1000);
     
     start = clock();
     //struct elementGroups b = getBlocks(n);
-    struct elementGroups b = getBlocksMPI(n);
+    struct elementGroups b = getBlocksParallel(n);
     msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time taken to find %d blocks: %d seconds %d milliseconds\n", b.count, msec/1000, msec%1000);
 
@@ -437,7 +443,7 @@ int main(int argc, char* argv[]) {
     struct collisions c = getCollisions(b);
     msec = (clock() - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time taken to find %d collisions: %d seconds %d milliseconds\n", c.count, msec/1000, msec%1000);
-    //printCollisions(c);
+    //printCollisions(c, data);
 
     msec = (clock() - startTotal) * 1000 / CLOCKS_PER_SEC;
     printf("Total time taken: %d seconds %d milliseconds\n", msec/1000, msec%1000);
