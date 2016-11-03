@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
     int required=MPI_THREAD_SERIALIZED;
     int provided;
     // Initialize the MPI environment
-    MPI_Init_thread(NULL, NULL, required, &provided);
+    MPI_Init(NULL, NULL);
 
     // Get the number of processes
     int world_size;
@@ -21,13 +21,18 @@ int main(int argc, char** argv) {
     char processor_name[MPI_MAX_PROCESSOR_NAME];
     int name_len;
     MPI_Get_processor_name(processor_name, &name_len);
-
-    // Print off a hello world message
-    
+   
     int np;
-    np = omp_get_num_threads();
-    printf("%d processors available rank %d\n", np, world_rank);
-    
+    int pn; 
+    #pragma omp parallel default(shared) private(np, pn)
+    {
+    // Print off a hello world message    
+    np = omp_get_max_threads();
+    pn = omp_get_thread_num();   
+ 
+    printf("Currently in thread %d of %d available threads in this proces. Rank is %d, world size is %d.\n", pn, np, world_rank, world_size );
+    }
+
     /*
     printf("Hello world from processor %s, rank %d"
            " out of %d processors\n",
