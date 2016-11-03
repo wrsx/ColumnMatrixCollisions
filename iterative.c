@@ -34,7 +34,7 @@
  */
 
 
-
+#include <unistd.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,8 +72,8 @@ int main (int argc, char **argv) {
     exit (1);
   }
   strcpy (strsize, argv[1]);
-  SIZE = getSize (strsize);             /* get the SIZE                 */
-
+  // SIZE = getSize (strsize);             /* get the SIZE                 */
+  SIZE = 1000000;
   /* Initialize the MPI execution environment                           */
   MPI_Init (&argc, &argv);
 
@@ -171,6 +171,7 @@ int main (int argc, char **argv) {
   fprintf (out, "\n\n");
   for (i = 0; i < SIZE; i++) {
     fprintf (out, " %lld \t", globaldata[i]);
+    //printf("%lld\n", globaldata[i]);
   }
   fclose (out);                          /* closing the file            */
   /*
